@@ -1,0 +1,7 @@
+# Error Handling Strategy
+- **General Approach:** Define `AppError` hierarchy in `src/libs/errors.py`; FastAPI registers a single handler translating these into JSON error responses while logging context. Workers wrap each RQ job in a try/except to capture payload details, persist failures to `async_jobs`, and rely on RQ retry settings.  
+- **Logging Standards:** Use structlog JSON logs with fields for `correlation_id`, `assessment_id`, `job_id`, `service`, `component`, and `span_id`. Mask secrets/tokens before logging.  
+- **External Service Errors:** Wrap OpenAI/Chroma calls with helper functions that catch SDK/HTTP errors, add metadata, and rethrow as `ExternalServiceError`. Apply exponential backoff (100 ms base, up to 5 attempts) and circuit-breaking after consecutive failures.  
+- **Business Logic Errors:** Raise typed exceptions such as `InvalidAssessmentState` or `RecommendationNotReady`; handler maps them to error payloads like `{"error_code":"ASSESSMENT_409","message":"Assessment already completed"}`.  
+- **Data Consistency:** Transactions managed via unit-of-work; reconciliation jobs repair partial writes by re-running recommendation aggregation or marking assessments as degraded. Idempotency keys stored in Redis/Postgres clamp duplicate response submissions and webhook retries.  
+- **Debugging:** Local debug flag can re-raise exceptions with richer traces; production paths log and propagate sanitized messages only.
