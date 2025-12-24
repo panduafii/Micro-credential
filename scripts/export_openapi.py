@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 from fastapi import FastAPI
+
+# Add parent directory to Python path to allow importing src package
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from src.api.main import app as api_app
 
 
