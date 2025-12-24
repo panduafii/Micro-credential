@@ -16,7 +16,7 @@ As a student, I want a unified recommendation summary with traceable sources so 
 ### Acceptance Criteria
 1. Fusion job combines rule scores, essay metrics, and RAG results into narrative summary stored in `recommendations`.
 2. `/api/v1/assessments/{id}/result` returns summary, ranked items, RAG traces, and degraded status.
-3. Response includes timestamp, processing duration, and cost metrics snapshot.
+3. Response includes timestamp and processing duration for observability.
 4. Integration tests verify end-to-end flow from submission to result across success and degraded paths.
 
 ## Story 3.3 Advisor and Student Feedback plus Observability Dashboards

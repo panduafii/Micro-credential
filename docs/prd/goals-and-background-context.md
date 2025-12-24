@@ -3,7 +3,6 @@
 ## Goals
 - Deliver an async-first FastAPI backend that completes hybrid (rule + GPT) scoring within targeted latency windows.
 - Provide RAG-backed micro-credential recommendations that advisors and students can immediately act on.
-- Maintain operating costs within the ~$5 per 500 assessments budget while supporting ≥100 concurrent sessions.
 - Ship an auditable MVP foundation that captures assessment, scoring, and recommendation data for future analytics.
 - Ensure explainable outputs with traceable sources so stakeholders can validate AI-driven decisions.
 
@@ -11,7 +10,7 @@
 Universities and credential providers rely on static assessments and generic advising, leaving students without actionable learning paths and advisors without defensible recommendations. Discovery workshops with our academic partner revealed that advisors currently spend 6–10 days synthesizing results manually, and 80% of surveyed students reported generic course suggestions that did not match their skill interests. This PRD delivers an AI-powered backend that collects hybrid responses, scores them credibly, and recommends micro-credentials with transparent sources so institutions can shorten guidance cycles to <48 hours while increasing student trust.
 
 ## Background Context
-The AI-powered Micro-Credential Assessment Backend serves universities and credential providers that need personalized, defensible learning guidance. Current static assessments fail to connect demonstrated skills to actionable micro-credentials, eroding advisor trust and student momentum. The four-week MVP focuses on a 10-question hybrid assessment (three theoretical, three essay, and four profile/interest items) so rule-based scoring can deliver instant feedback while GPT handles nuanced essay evaluation. RAG is mandatory to align recommendations with catalog context, and Redis-backed async processing balances throughput with cost discipline. By pairing deterministic scoring with explainable AI summaries, the service gives advisors and learners confidence in guidance while keeping infrastructure lean and extensible.
+The AI-powered Micro-Credential Assessment Backend serves universities and credential providers that need personalized, defensible learning guidance. Current static assessments fail to connect demonstrated skills to actionable micro-credentials, eroding advisor trust and student momentum. The four-week MVP focuses on a 10-question hybrid assessment (three theoretical, three essay, and four profile/interest items) so rule-based scoring can deliver instant feedback while GPT handles nuanced essay evaluation. RAG is mandatory to align recommendations with catalog context, and Redis-backed async processing keeps throughput high without overcomplicating operations. By pairing deterministic scoring with explainable AI summaries, the service gives advisors and learners confidence in guidance while keeping infrastructure lean and extensible.
 
 ## Target Users
 
@@ -38,7 +37,6 @@ The AI-powered Micro-Credential Assessment Backend serves universities and crede
 | -------------------------------------------------- | ---------------------------------------------------------------------- |
 | Deliver reliable async API for assessment flow     | Average latency < 500 ms for rule-based scoring; < 10 s for GPT tasks  |
 | Ensure recommendation credibility and transparency | ≥ 85% relevance in RAG validation tests with explainable context trace |
-| Maintain affordable inference cost                 | ≤ $5 per 500 assessments                                               |
 | Guarantee operational reliability                  | ≥ 99% uptime and successful async queue completion rate                |
 | Validate user satisfaction and adoption            | ≥ 70% student satisfaction, ≥ 80% advisor trust in recommendations     |
 
@@ -67,7 +65,6 @@ The AI-powered Micro-Credential Assessment Backend serves universities and crede
 ## Design Philosophy
 - **Async-first:** Handles concurrent assessments without blocking.
 - **Explainable AI:** GPT output is backed by RAG retrieval sources surfaced to end users.
-- **Cost-optimized:** Constrains GPT/RAG usage to remain within $5 per 500 assessments.
 - **Scalable Foundation:** Modular monolith enables future services without premature complexity.
 
 ## Rationale Recap

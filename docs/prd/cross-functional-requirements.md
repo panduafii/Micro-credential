@@ -16,6 +16,6 @@
 ## Operational Requirements
 - Deployment cadence: Weekly deployments during MVP build; automated CI/CD to staging then production with canary validation.
 - Environments: Dev (local Docker Compose), Staging (shared ECS cluster), Production (isolated ECS cluster with managed Postgres/Redis).
-- Monitoring & Alerting: Prometheus/Grafana dashboards for latency, queue depth, GPT cost; alert thresholds for queue backlog >50 jobs or degraded incidents >5% over 1 hour.
+- Monitoring & Alerting: Prometheus/Grafana dashboards for latency and queue depth; alert thresholds for queue backlog >50 jobs or degraded incidents >5% over 1 hour.
 - Support: On-call rotation (product + engineering) during pilot weeks; runbooks covering GPT failures, vector store downtime, and webhook retries.
 - Documentation: Living runbooks and API docs linked in repo; onboarding guides for advisors and admins updated prior to pilot.

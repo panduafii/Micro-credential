@@ -5,7 +5,6 @@
 ### Goals
 - Deliver an async-first FastAPI backend that completes hybrid (rule + GPT) scoring within targeted latency windows.
 - Provide RAG-backed micro-credential recommendations that advisors and students can immediately act on.
-- Maintain operating costs within the ~$5 per 500 assessments budget while supporting ≥100 concurrent sessions.
 - Ship an auditable MVP foundation that captures assessment, scoring, and recommendation data for future analytics.
 - Ensure explainable outputs with traceable sources so stakeholders can validate AI-driven decisions.
 
@@ -13,7 +12,7 @@
 Universities and credential providers rely on static assessments and generic advising, leaving students without actionable learning paths and advisors without defensible recommendations. Discovery workshops with our academic partner revealed that advisors currently spend 6–10 days synthesizing results manually, and 80% of surveyed students reported generic course suggestions that did not match their skill interests. This PRD delivers an AI-powered backend that collects hybrid responses, scores them credibly, and recommends micro-credentials with transparent sources so institutions can shorten guidance cycles to <48 hours while increasing student trust.
 
 ### Background Context
-The AI-powered Micro-Credential Assessment Backend serves universities and credential providers that need personalized, defensible learning guidance. Current static assessments fail to connect demonstrated skills to actionable micro-credentials, eroding advisor trust and student momentum. The four-week MVP focuses on a 10-question hybrid assessment (three theoretical, three essay, and four profile/interest items) so rule-based scoring can deliver instant feedback while GPT handles nuanced essay evaluation. RAG is mandatory to align recommendations with catalog context, and Redis-backed async processing balances throughput with cost discipline. By pairing deterministic scoring with explainable AI summaries, the service gives advisors and learners confidence in guidance while keeping infrastructure lean and extensible.
+The AI-powered Micro-Credential Assessment Backend serves universities and credential providers that need personalized, defensible learning guidance. Current static assessments fail to connect demonstrated skills to actionable micro-credentials, eroding advisor trust and student momentum. The four-week MVP focuses on a 10-question hybrid assessment (three theoretical, three essay, and four profile/interest items) so rule-based scoring can deliver instant feedback while GPT handles nuanced essay evaluation. RAG is mandatory to align recommendations with catalog context, and Redis-backed async processing keeps throughput high without overcomplicating operations. By pairing deterministic scoring with explainable AI summaries, the service gives advisors and learners confidence in guidance while keeping infrastructure lean and extensible.
 
 ### Target Users
 
@@ -40,7 +39,6 @@ The AI-powered Micro-Credential Assessment Backend serves universities and crede
 | -------------------------------------------------- | ---------------------------------------------------------------------- |
 | Deliver reliable async API for assessment flow     | Average latency < 500 ms for rule-based scoring; < 10 s for GPT tasks  |
 | Ensure recommendation credibility and transparency | ≥ 85% relevance in RAG validation tests with explainable context trace |
-| Maintain affordable inference cost                 | ≤ $5 per 500 assessments                                               |
 | Guarantee operational reliability                  | ≥ 99% uptime and successful async queue completion rate                |
 | Validate user satisfaction and adoption            | ≥ 70% student satisfaction, ≥ 80% advisor trust in recommendations     |
 
@@ -69,7 +67,6 @@ The AI-powered Micro-Credential Assessment Backend serves universities and crede
 ### Design Philosophy
 - **Async-first:** Handles concurrent assessments without blocking.
 - **Explainable AI:** GPT output is backed by RAG retrieval sources surfaced to end users.
-- **Cost-optimized:** Constrains GPT/RAG usage to remain within $5 per 500 assessments.
 - **Scalable Foundation:** Modular monolith enables future services without premature complexity.
 
 ### Rationale Recap
@@ -89,8 +86,8 @@ The AI-powered Micro-Credential Assessment Backend serves universities and crede
 - FR1: The `POST /api/v1/assessments/start` endpoint must require the student to choose a target role/track (e.g., “Backend Engineer”, “Data Analyst”) and return a 10-question bundle tailored to that role from the active bank within 400 ms p95.
 - FR2: The system must expose `/api/v1/tracks` so students can preview available roles, associated skill focus, and question mix before starting an assessment.
 - FR3: The system must accept partial response batches and persist them idempotently so students can resume assessments without data loss.
-- FR4: On final submission the backend must synchronously compute rule-based scores for theoretical and profile questions, update the score record, and enqueue GPT/RAG jobs with a retry cap of three attempts.
-- FR5: Essay-scoring workers must evaluate each essay via GPT against rubric dimensions (clarity, accuracy, coherence) and save structured scores plus feedback traces.
+- FR4: On final submission the backend must synchronously compute rule-based scores for theoretical and profile questions, persist them to the `rule_scores` table, and enqueue RQ jobs (`score_essay`, `generate_recommendations`) with a retry cap of three attempts.
+- FR5: Essay-scoring workers must evaluate each essay via GPT against rubric dimensions (clarity, accuracy, coherence) and save structured scores plus feedback traces into the `essay_scores` table.
 - FR6: The RAG service must build a retrieval query using the selected role, profile signals, and essay insights, fetch Top-K credentials from Chroma, and persist ranked items with source snippets.
 - FR7: The fusion service must combine role context, rule scores, essay insights, and RAG output into a single recommendation summary while flagging degraded results when fallbacks were used.
 - FR8: Students must be able to poll `/api/v1/assessments/{id}/status` and `/api/v1/assessments/{id}/result`, and receive webhooks (when configured) when processing completes.
@@ -100,18 +97,17 @@ The AI-powered Micro-Credential Assessment Backend serves universities and crede
 ### Non-Functional Requirements
 - NFR1: Average synchronous endpoint latency must stay <500 ms p95; async GPT completion must stay <10 s p95; RAG retrieval <1.5 s average.
 - NFR2: The system must handle ≥100 concurrent assessments by horizontally scaling API and worker pods without data loss.
-- NFR3: Total OpenAI plus embedding spend must remain ≤$5 per 500 assessments, managed via prompt/token budgeting.
-- NFR4: Redis queues must tolerate worker restarts with exactly-once processing guarantees enforced through job status locking.
-- NFR5: Postgres must encrypt PII at rest and ensure referential integrity across assessments, scores, recommendations, and track selections.
-- NFR6: Every recommendation must include traceable sources so advisors can validate AI output.
-- NFR7: Observability must capture structured logs, queue depth, latency histograms, and inference token counts for SLO tracking, segmented by role/track.
-- NFR8: The system must provide a static recommendation fallback when GPT or RAG paths fail while logging the degraded mode and affected role/track.
+- NFR3: Redis queues must tolerate worker restarts with exactly-once processing guarantees enforced through job status locking.
+- NFR4: Postgres must encrypt PII at rest and ensure referential integrity across `assessments`, `assessment_question_snapshots`, `assessment_responses`, `rule_scores`, `essay_scores`, `recommendations`, and track selections in `role_catalog`.
+- NFR5: Every recommendation must include traceable sources so advisors can validate AI output.
+- NFR6: Observability must capture structured logs, queue depth, latency histograms, and inference token counts for SLO tracking, segmented by role/track.
+- NFR7: The system must provide a static recommendation fallback when GPT or RAG paths fail while logging the degraded mode and affected role/track.
 
 ## MVP Validation Plan
 - **Pilot Cohort:** Run the MVP with at least 30 students and 5 advisors across two academic programs during Week 4, capturing quantitative metrics (latency, recommendation acceptance) and qualitative feedback.
 - **Success Criteria:** Achieve ≥70% student satisfaction, ≥80% advisor trust rating, and ≤48-hour turnaround per assessment; degraded-mode incidents must remain <10% of total runs.
 - **Feedback Loop:** Collect advisor/student feedback via in-product forms (FR10) and conduct follow-up interviews; feed insights into backlog grooming for post-MVP iterations.
-- **Analytics & Instrumentation:** Instrument metrics dashboard to track queue depth, failure rates, and cost per assessment; review daily during pilot.
+- **Analytics & Instrumentation:** Instrument metrics dashboard to track queue depth and failure rates; review daily during pilot.
 - **Go/No-Go Decision:** If success criteria met and no Sev-1 incidents outstanding, proceed to broader rollout planning; otherwise schedule remediation sprint focused on identified bottlenecks (GPT latency, RAG accuracy, or UX friction).
 
 ## User Experience Requirements
@@ -163,26 +159,25 @@ Expect advisors/admins on desktop and students on mobile; responsive web ensures
 Single FastAPI-centric repository containing API, workers, shared domain models, and infrastructure scripts (Docker, IaC). Keeps async pipeline cohesive and accelerates iteration within the four-week MVP window.
 
 ### Service Architecture
-Modular monolith using FastAPI for HTTP routes and Redis-backed workers (RQ or Celery) for GPT essay scoring and RAG retrieval. Workers share ORM access and configuration modules, enabling independent horizontal scaling of API and worker containers without microservice overhead.
+Modular monolith using FastAPI for HTTP routes and Redis-backed workers (RQ) for GPT essay scoring and RAG retrieval. Workers share ORM access and configuration modules, enabling independent horizontal scaling of API and worker containers without microservice overhead.
 
 ### Testing Requirements
-Adopt Unit + Integration coverage. Unit tests cover rule scorers, fusion logic, track routing, and RAG query builders. Integration tests exercise end-to-end async pipeline with local Postgres/Redis/Chroma containers. Contract tests mock OpenAI interactions to stay within budget. Full UI E2E deferred until companion front-end exists.
+Adopt Unit + Integration coverage. Unit tests cover rule scorers, fusion logic, track routing, and RAG query builders. Integration tests exercise end-to-end async pipeline with local Postgres/Redis/Chroma containers. Contract tests mock OpenAI interactions to avoid external dependencies. Full UI E2E deferred until companion front-end exists.
 
 ### Additional Technical Assumptions and Requests
 - Language/Framework: Python 3.12, FastAPI, SQLAlchemy (async), Pydantic v2.
-- Queue: Redis-backed RQ (or Celery) with exponential backoff and dead-letter queues for failed jobs.
+- Queue: Redis-backed RQ with exponential backoff and dead-letter queues for failed jobs.
 - Vector Store: Chroma or PGVector managed with migrations; embeddings generated via OpenAI `text-embedding-3-small`.
 - Deployment: Docker Compose for local dev; container images target AWS ECS Fargate (or similar) with Terraform/IaC stubs for future scaling.
 - Secrets: Environment variables locally; parameter store/secret manager for production; rotate OpenAI keys monthly.
 - Observability: OpenTelemetry-compatible logging, Prometheus exporters for queue depth/latency; Grafana dashboard skeleton.
 - Role catalogs and question pools stored in Postgres with versioned seeds for track-based question selection.
 - Security: JWT auth with role claims, HTTPS enforcement, rate limiting (token bucket), and audit logging on admin actions.
-- Cost Control: Batch GPT essay scoring with low temperature; embed catalog refresh scheduled weekly to stay within spend limits.
 
 ## Cross-Functional Requirements
 
 ### Data Requirements
-- Core entities: users, assessments, questions, responses, scores, recommendations, recommendation_items, rag_traces, credentials, embeddings_meta, jobs, audit_events, metrics (see ERD outline in `docs/section_3_brainstrom.md`).
+- Core entities: `role_catalog`, `users`, `questions`, `assessments`, `assessment_question_snapshots`, `assessment_responses`, `rule_scores`, `essay_scores`, `recommendations`, `recommendation_items`, `rag_traces`, `credential_catalog`, `embedding_artifacts`, `async_jobs`, `recommendation_feedback`, `audit_logs`, `metric_snapshots`, and `webhook_events` (see ERD in `docs/architecture/database-schema.md`).
 - Storage: PostgreSQL as system of record with JSONB for rubric/score payloads; Chroma/PGVector for embeddings; Redis for transient queue state.
 - Data Quality: Validation ensures question snapshots are immutable per assessment; scores and recommendations must have consistent foreign-key relationships; degraded-mode flag captured for analytics.
 - Retention: Assessment data retained for at least 24 months; queue metadata retained 30 days; audit logs retained 36 months for compliance.
@@ -197,7 +192,7 @@ Adopt Unit + Integration coverage. Unit tests cover rule scorers, fusion logic, 
 ### Operational Requirements
 - Deployment cadence: Weekly deployments during MVP build; automated CI/CD to staging then production with canary validation.
 - Environments: Dev (local Docker Compose), Staging (shared ECS cluster), Production (isolated ECS cluster with managed Postgres/Redis).
-- Monitoring & Alerting: Prometheus/Grafana dashboards for latency, queue depth, GPT cost; alert thresholds for queue backlog >50 jobs or degraded incidents >5% over 1 hour.
+- Monitoring & Alerting: Prometheus/Grafana dashboards for latency and queue depth; alert thresholds for queue backlog >50 jobs or degraded incidents >5% over 1 hour.
 - Support: On-call rotation (product + engineering) during pilot weeks; runbooks covering GPT failures, vector store downtime, and webhook retries.
 - Documentation: Living runbooks and API docs linked in repo; onboarding guides for advisors and admins updated prior to pilot.
 
@@ -253,15 +248,15 @@ As a student, I want my responses finalized and scored instantly for rule-based 
 
 #### Acceptance Criteria
 1. `POST /api/v1/assessments/{id}/submit` enforces completion, locks responses, and computes theoretical/profile scores synchronously.
-2. Scores written to Postgres `scores` table with per-question breakdown.
-3. Job records created (`gpt`, `rag`, `fusion`) with status `queued`.
+2. Scores are written to the Postgres `rule_scores` table with a per-question breakdown.
+3. Entries are created in the `async_jobs` table with `job_type` values `score_essay` and `generate_recommendations`, initial status `queued`.
 4. Degraded flag set if required data is missing.
 
 ### Story 2.2 GPT Essay Scoring Worker
 As a scoring worker, I want to evaluate essays asynchronously via GPT so that rubric-based scores persist without blocking the API.
 
 #### Acceptance Criteria
-1. Worker pulls from Redis queue, batches essays per assessment, and calls GPT with deterministic prompt.
+1. Worker pulls from the Redis RQ queues (`default`, `high`), invokes the `score_essay_job` handler per assessment, and calls GPT with a deterministic prompt.
 2. GPT responses parsed into rubric metrics; retries up to three attempts with exponential backoff.
 3. Failures log detailed diagnostics and mark job `failed` while triggering degraded state.
 4. Unit tests mock GPT responses and cover retry logic.
@@ -270,7 +265,7 @@ As a scoring worker, I want to evaluate essays asynchronously via GPT so that ru
 As a student, I want to track assessment processing so that I know when results are ready.
 
 #### Acceptance Criteria
-1. `/api/v1/assessments/{id}/status` returns stage progress (rule-score, gpt, rag, fusion) and percentage.
+1. `/api/v1/assessments/{id}/status` returns stage progress (`rule_scoring`, `essay_scoring`, `recommendations`) and completion percentage.
 2. Optional webhook registration stored; worker triggers callback on completion or failure.
 3. Idempotency keys enforced on submissions to prevent duplicate jobs.
 4. Observability metrics exported for job durations and queue depth.
@@ -293,7 +288,7 @@ As a student, I want a unified recommendation summary with traceable sources so 
 #### Acceptance Criteria
 1. Fusion job combines rule scores, essay metrics, and RAG results into narrative summary stored in `recommendations`.
 2. `/api/v1/assessments/{id}/result` returns summary, ranked items, RAG traces, and degraded status.
-3. Response includes timestamp, processing duration, and cost metrics snapshot.
+3. Response includes timestamp and processing duration for observability.
 4. Integration tests verify end-to-end flow from submission to result across success and degraded paths.
 
 ### Story 3.3 Advisor and Student Feedback plus Observability Dashboards
@@ -335,4 +330,4 @@ As an advisor, I want to log feedback on recommendations and monitor system heal
 "You are the UX Expert focused on translating this PRD into interface concepts. Using the role-gated assessment flow, async status visibility, and RAG transparency requirements described here, outline the key user journeys and propose wireframe-level layouts for the student dashboard, advisor console, and admin operations screen. Prioritize clarity around role selection, progress tracking, and recommendation explainability."
 
 ### Architect Prompt
-"You are the Software Architect responsible for implementing the AI-powered Micro-Credential Assessment Backend MVP defined in this PRD. Design a detailed architecture plan covering FastAPI modular monolith structure, Redis queue configuration, GPT/RAG integration patterns, database schema/migrations, deployment topology (local Docker → ECS Fargate), and observability setup. Explicitly address role-based question selection, degraded-mode fallbacks, latency/cost targets, and scaling to ≥100 concurrent assessments."
+"You are the Software Architect responsible for implementing the AI-powered Micro-Credential Assessment Backend MVP defined in this PRD. Design a detailed architecture plan covering FastAPI modular monolith structure, Redis queue configuration, GPT/RAG integration patterns, database schema/migrations, deployment topology (local Docker → ECS Fargate), and observability setup. Explicitly address role-based question selection, degraded-mode fallbacks, latency targets, and scaling to ≥100 concurrent assessments."
