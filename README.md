@@ -57,6 +57,7 @@ Key directories follow the architecture guide:
 - `src/workers`: RQ worker entrypoint and job handlers.
 - `src/domain`: Shared domain models between services.
 - `src/infrastructure`: Repositories and data access abstractions.
+  - `udemy_courses.csv`: Sample dataset (3,684 courses) for recommendations and RAG features.
 - `tests`: Pytest-based unit and integration suites.
 
 ## Development Guidelines
