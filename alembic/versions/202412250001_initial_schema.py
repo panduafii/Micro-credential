@@ -40,7 +40,12 @@ def upgrade() -> None:
     op.create_table(
         "question_templates",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("role_slug", sa.String(length=64), sa.ForeignKey("role_catalog.slug", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "role_slug",
+            sa.String(length=64),
+            sa.ForeignKey("role_catalog.slug", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("sequence", sa.Integer(), nullable=False),
         sa.Column("question_type", question_type_enum, nullable=False),
         sa.Column("prompt", sa.Text(), nullable=False),
@@ -51,7 +56,12 @@ def upgrade() -> None:
         "assessments",
         sa.Column("id", sa.String(length=36), primary_key=True),
         sa.Column("owner_id", sa.String(length=64), nullable=False, index=True),
-        sa.Column("role_slug", sa.String(length=64), sa.ForeignKey("role_catalog.slug", ondelete="RESTRICT"), nullable=False),
+        sa.Column(
+            "role_slug",
+            sa.String(length=64),
+            sa.ForeignKey("role_catalog.slug", ondelete="RESTRICT"),
+            nullable=False,
+        ),
         sa.Column("status", assessment_status_enum, nullable=False, index=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
