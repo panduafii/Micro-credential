@@ -59,6 +59,42 @@ Key directories follow the architecture guide:
 - `src/infrastructure`: Repositories and data access abstractions.
   - `udemy_courses.csv`: Sample dataset (3,684 courses) for recommendations and RAG features.
 - `tests`: Pytest-based unit and integration suites.
+- `docs/stories`: Implementation documentation for each user story.
+
+## API Documentation
+
+### SwaggerUI
+After starting the API, access interactive documentation at:
+- **SwaggerUI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+- **OpenAPI JSON**: http://localhost:8000/openapi.json
+
+### Available Endpoints (Epic 1)
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/health` | - | Health check |
+| GET | `/tracks` | - | List all active tracks |
+| GET | `/tracks/{slug}` | - | Get track by slug |
+| POST | `/tracks` | Admin | Create track |
+| PATCH | `/tracks/{slug}` | Admin | Update track |
+| DELETE | `/tracks/{slug}` | Admin | Soft-delete track |
+| GET | `/questions` | - | List questions (filter by role_slug) |
+| GET | `/questions/{id}` | - | Get question by ID |
+| POST | `/questions` | Admin | Create question |
+| PATCH | `/questions/{id}` | Admin | Update question (versioned) |
+| DELETE | `/questions/{id}` | Admin | Soft-delete question |
+| POST | `/assessments/start` | Student | Start/resume assessment |
+
+### Generate Test Token
+```python
+from src.core.auth import create_access_token
+
+# Student token
+token = create_access_token("test-user", roles=["student"])
+
+# Admin token
+token = create_access_token("admin-user", roles=["admin"])
+```
 
 ## Development Guidelines
 
@@ -84,3 +120,22 @@ git add -A
 git commit -m "your message"
 git push
 ```
+
+## Implementation Progress
+
+### Epic 1: Role-Gated Assessment Foundation ✅
+- [x] Story 1.1: Monorepo Baseline and Auth Skeleton
+- [x] Story 1.2: Track Catalog Management
+- [x] Story 1.3: Question Bank CRUD and Versioning
+- [x] Story 1.4: Role-Gated Assessment Start
+
+### Epic 2: Async Scoring and Persistence Backbone 🔜
+- [ ] Story 2.1: Submission Finalization and Rule Scoring
+- [ ] Story 2.2: GPT Essay Scoring Worker
+- [ ] Story 2.3: Status Polling, Webhooks, and Idempotency
+
+### Epic 3: Recommendations, Transparency, and Feedback Loop 🔜
+- [ ] Story 3.1: RAG-Powered Credential Recommendations
+- [ ] Story 3.2: Transparency Dashboard
+- [ ] Story 3.3: Feedback Collection and Analytics
+
