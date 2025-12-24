@@ -36,6 +36,7 @@ async def start_assessment(
     return AssessmentStartResponse(
         assessment_id=result["assessment_id"],
         status=result["status"],
+        expires_at=result.get("expires_at"),
         role=TrackItem(**result["role"]),
         questions=[AssessmentQuestion(**question) for question in result["questions"]],
     )

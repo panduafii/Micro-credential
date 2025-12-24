@@ -20,5 +20,6 @@ class AssessmentQuestion(BaseModel):
 class AssessmentStartResponse(BaseModel):
     assessment_id: str
     status: str
+    expires_at: str | None = Field(None, description="ISO timestamp when assessment expires")
     role: TrackItem
     questions: list[AssessmentQuestion]

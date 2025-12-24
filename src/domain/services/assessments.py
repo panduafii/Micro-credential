@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.domain import User
@@ -12,11 +14,24 @@ from src.infrastructure.db.models import (
     AssessmentResponse,
     AssessmentStatus,
     QuestionTemplate,
+    QuestionType,
     RoleCatalog,
 )
 
 if TYPE_CHECKING:
     from sqlalchemy import Select
+
+logger = structlog.get_logger()
+
+# Default question mix: 3 theoretical + 3 essay + 4 profile = 10 total
+DEFAULT_QUESTION_MIX: dict[QuestionType, int] = {
+    QuestionType.THEORETICAL: 3,
+    QuestionType.ESSAY: 3,
+    QuestionType.PROFILE: 4,
+}
+
+# Assessment expiry duration (24 hours by default)
+ASSESSMENT_EXPIRY_HOURS = 24
 
 
 class RoleNotFoundError(Exception):
@@ -49,13 +64,29 @@ class AssessmentService:
             raise RoleNotFoundError(f"Role '{role_slug}' tidak ditemukan")
 
         assessment = await self._find_active_assessment(user_id=user.user_id, role_slug=role_slug)
-        if assessment is None:
-            assessment = await self._create_assessment(user_id=user.user_id, role_slug=role_slug)
+        is_new = assessment is None
+        if is_new:
+            assessment = await self._create_assessment(
+                user_id=user.user_id, role_slug=role_slug, role=role
+            )
 
         questions = await self._build_questions_payload(assessment.id)
+
+        # Log analytics event (AC4)
+        await logger.ainfo(
+            "assessment_started",
+            event_type="assessment_start" if is_new else "assessment_resume",
+            student_id=user.user_id,
+            track_slug=role_slug,
+            assessment_id=assessment.id,
+            question_count=len(questions),
+            expires_at=assessment.expires_at.isoformat() if assessment.expires_at else None,
+        )
+
         return {
             "assessment_id": assessment.id,
             "status": assessment.status.value,
+            "expires_at": assessment.expires_at.isoformat() if assessment.expires_at else None,
             "role": {
                 "slug": role.slug,
                 "name": role.name,
@@ -82,22 +113,34 @@ class AssessmentService:
         )
         return await self.session.scalar(stmt)
 
-    async def _create_assessment(self, *, user_id: str, role_slug: str) -> Assessment:
+    async def _create_assessment(
+        self, *, user_id: str, role_slug: str, role: RoleCatalog
+    ) -> Assessment:
         templates = await self._get_question_templates(role_slug)
         if not templates:
             raise MissingQuestionTemplateError(
                 f"Role '{role_slug}' belum memiliki question templates"
             )
 
+        # Get question mix (use overrides from role if available)
+        question_mix = self._get_question_mix(role)
+
+        # Select questions by type according to mix
+        selected_templates = self._select_questions_by_mix(templates, question_mix)
+
+        # Calculate expiry time
+        expires_at = datetime.now(UTC) + timedelta(hours=ASSESSMENT_EXPIRY_HOURS)
+
         assessment = Assessment(
             owner_id=user_id,
             role_slug=role_slug,
             status=AssessmentStatus.DRAFT,
+            expires_at=expires_at,
         )
         self.session.add(assessment)
         await self.session.flush()
 
-        for template in templates:
+        for template in selected_templates:
             snapshot = AssessmentQuestionSnapshot(
                 assessment_id=assessment.id,
                 question_template_id=template.id,
@@ -112,10 +155,35 @@ class AssessmentService:
         await self.session.refresh(assessment)
         return assessment
 
+    def _get_question_mix(self, role: RoleCatalog) -> dict[QuestionType, int]:
+        """Get question mix from role overrides or use default."""
+        if role.question_mix_overrides:
+            return {
+                QuestionType(k): v
+                for k, v in role.question_mix_overrides.items()
+                if k in [qt.value for qt in QuestionType]
+            }
+        return DEFAULT_QUESTION_MIX.copy()
+
+    def _select_questions_by_mix(
+        self, templates: list[QuestionTemplate], question_mix: dict[QuestionType, int]
+    ) -> list[QuestionTemplate]:
+        """Select questions according to type mix (AC2: 3 theoretical + 3 essay + 4 profile)."""
+        selected: list[QuestionTemplate] = []
+
+        for qtype, count in question_mix.items():
+            type_templates = [t for t in templates if t.question_type == qtype and t.is_active]
+            # Take up to 'count' questions of this type
+            selected.extend(type_templates[:count])
+
+        # Sort by sequence for consistent ordering
+        selected.sort(key=lambda t: t.sequence)
+        return selected
+
     async def _get_question_templates(self, role_slug: str) -> list[QuestionTemplate]:
         stmt: Select[tuple[QuestionTemplate]] = (
             select(QuestionTemplate)
-            .where(QuestionTemplate.role_slug == role_slug)
+            .where(QuestionTemplate.role_slug == role_slug, QuestionTemplate.is_active.is_(True))
             .order_by(QuestionTemplate.sequence)
         )
         return list((await self.session.execute(stmt)).scalars().all())
