@@ -4,9 +4,7 @@ version = "0.1.0"
 description = "Monorepo skeleton for the MicroCred credentialing platform."
 authors = ["MicroCred Team <dev@microcred.local>"]
 readme = "README.md"
-packages = [
-  { include = "src", from = "." },
-]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.13"
@@ -53,3 +51,8 @@ ignore = ["B008"]  # Allow function calls in argument defaults (needed for FastA
 
 [tool.ruff.format]
 preview = true
+
+[tool.mypy]
+python_version = "3.11"
+exclude = ["tests/", "alembic/", "scripts/"]
+explicit_package_bases = true

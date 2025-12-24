@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,7 +43,7 @@ class AssessmentService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def start_or_resume(self, *, user: User, role_slug: str) -> dict[str, object]:
+    async def start_or_resume(self, *, user: User, role_slug: str) -> dict[str, Any]:
         role = await self._get_role(role_slug)
         if role is None:
             raise RoleNotFoundError(f"Role '{role_slug}' tidak ditemukan")

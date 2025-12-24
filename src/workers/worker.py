@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Sequence
+from typing import cast
 
 import structlog
 from redis import Redis
@@ -21,7 +22,7 @@ REGISTERED_JOBS = {
 async def main() -> None:
     """Bootstrap the async worker, wiring queues and job handlers."""
     settings = get_settings()
-    redis_connection = Redis.from_url(settings.redis_url)
+    redis_connection = cast(Redis, Redis.from_url(settings.redis_url))
     logger.info(
         "worker_bootstrap",
         queues=list(QUEUE_NAMES),
