@@ -48,6 +48,426 @@
             }
           }
         }
+      },
+      "post": {
+        "tags": [
+          "Tracks"
+        ],
+        "summary": "Create Track",
+        "description": "Create a new track (admin-only).",
+        "operationId": "create_track_tracks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/tracks/{slug}": {
+      "get": {
+        "tags": [
+          "Tracks"
+        ],
+        "summary": "Get Track",
+        "description": "Get track details by slug.",
+        "operationId": "get_track_tracks__slug__get",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Tracks"
+        ],
+        "summary": "Update Track",
+        "description": "Update track (admin-only).",
+        "operationId": "update_track_tracks__slug__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Tracks"
+        ],
+        "summary": "Delete Track",
+        "description": "Soft delete track by marking as inactive (admin-only).",
+        "operationId": "delete_track_tracks__slug__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/questions": {
+      "get": {
+        "tags": [
+          "questions"
+        ],
+        "summary": "List Questions",
+        "description": "List all active questions, optionally filtered by role/track.",
+        "operationId": "list_questions_questions_get",
+        "parameters": [
+          {
+            "name": "role_slug",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QuestionItem"
+                  },
+                  "title": "Response List Questions Questions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "questions"
+        ],
+        "summary": "Create Question",
+        "description": "Create a new question (admin only).",
+        "operationId": "create_question_questions_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/questions/{question_id}": {
+      "get": {
+        "tags": [
+          "questions"
+        ],
+        "summary": "Get Question",
+        "description": "Get a specific question by ID (including inactive).",
+        "operationId": "get_question_questions__question_id__get",
+        "parameters": [
+          {
+            "name": "question_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Question Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "questions"
+        ],
+        "summary": "Update Question",
+        "description": "Update a question with versioning (admin only).\nCreates a new version and marks the old one inactive.",
+        "operationId": "update_question_questions__question_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "question_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Question Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "questions"
+        ],
+        "summary": "Delete Question",
+        "description": "Soft delete a question (admin only).",
+        "operationId": "delete_question_questions__question_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "question_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Question Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/assessments/start": {
@@ -173,6 +593,18 @@
             "type": "string",
             "title": "Status"
           },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At",
+            "description": "ISO timestamp when assessment expires"
+          },
           "role": {
             "$ref": "#/components/schemas/TrackItem"
           },
@@ -205,6 +637,387 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "QuestionCreate": {
+        "properties": {
+          "role_slug": {
+            "type": "string",
+            "title": "Role Slug",
+            "description": "Role/track slug this question belongs to"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Sequence",
+            "description": "Question order in assessment"
+          },
+          "question_type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/QuestionType"
+              }
+            ],
+            "description": "Type of question"
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 10,
+            "title": "Prompt",
+            "description": "Question text"
+          },
+          "metadata": {
+            "title": "Metadata",
+            "description": "Optional metadata including rubric and rules"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role_slug",
+          "sequence",
+          "question_type",
+          "prompt"
+        ],
+        "title": "QuestionCreate",
+        "description": "Schema for creating a new question"
+      },
+      "QuestionDetail": {
+        "properties": {
+          "role_slug": {
+            "type": "string",
+            "title": "Role Slug",
+            "description": "Role/track slug this question belongs to"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Sequence",
+            "description": "Question order in assessment"
+          },
+          "question_type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/QuestionType"
+              }
+            ],
+            "description": "Type of question"
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 10,
+            "title": "Prompt",
+            "description": "Question text"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata",
+            "description": "Optional metadata including rubric and rules"
+          },
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "previous_version_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Version Id"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role_slug",
+          "sequence",
+          "question_type",
+          "prompt",
+          "id",
+          "version",
+          "previous_version_id",
+          "is_active",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "QuestionDetail",
+        "description": "Full question details including version and timestamps"
+      },
+      "QuestionItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "role_slug": {
+            "type": "string",
+            "title": "Role Slug"
+          },
+          "sequence": {
+            "type": "integer",
+            "title": "Sequence"
+          },
+          "question_type": {
+            "$ref": "#/components/schemas/QuestionType"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role_slug",
+          "sequence",
+          "question_type",
+          "prompt",
+          "version",
+          "is_active"
+        ],
+        "title": "QuestionItem",
+        "description": "Simplified question for list views"
+      },
+      "QuestionType": {
+        "type": "string",
+        "enum": [
+          "theoretical",
+          "essay",
+          "profile"
+        ],
+        "title": "QuestionType"
+      },
+      "QuestionUpdate": {
+        "properties": {
+          "sequence": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequence"
+          },
+          "question_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuestionType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "title": "QuestionUpdate",
+        "description": "Schema for updating an existing question (all fields optional)"
+      },
+      "TrackCreate": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[a-z0-9-]+$",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "skill_focus_tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skill Focus Tags"
+          },
+          "question_mix_overrides": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Mix Overrides"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "name"
+        ],
+        "title": "TrackCreate"
+      },
+      "TrackDetail": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "skill_focus_tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skill Focus Tags"
+          },
+          "question_mix_overrides": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Mix Overrides"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "is_active",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TrackDetail"
       },
       "TrackItem": {
         "properties": {
@@ -239,6 +1052,75 @@
           "question_count"
         ],
         "title": "TrackItem"
+      },
+      "TrackUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "skill_focus_tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skill Focus Tags"
+          },
+          "question_mix_overrides": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Mix Overrides"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "title": "TrackUpdate"
       },
       "TracksResponse": {
         "properties": {

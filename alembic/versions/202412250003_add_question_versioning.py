@@ -35,7 +35,7 @@ def upgrade() -> None:
             "created_at",
             sa.DateTime(timezone=True),
             nullable=False,
-            server_default=sa.text("(datetime('now'))"),
+            server_default=sa.text("now()"),
         ),
     )
     op.add_column(
@@ -44,7 +44,7 @@ def upgrade() -> None:
             "updated_at",
             sa.DateTime(timezone=True),
             nullable=False,
-            server_default=sa.text("(datetime('now'))"),
+            server_default=sa.text("now()"),
         ),
     )
 
