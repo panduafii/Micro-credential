@@ -2,7 +2,6 @@
 Unit tests for Question Bank CRUD endpoints
 """
 
-
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select

@@ -16,9 +16,7 @@ async def test_list_tracks_returns_active_only(async_client: AsyncClient) -> Non
     assert isinstance(data["tracks"], list)
 
 
-async def test_create_track_requires_admin(
-    async_client: AsyncClient, admin_token: str
-) -> None:
+async def test_create_track_requires_admin(async_client: AsyncClient, admin_token: str) -> None:
     """POST /tracks should require admin role."""
     # Try without auth - should fail
     response = await async_client.post(
@@ -109,9 +107,7 @@ async def test_get_nonexistent_track_returns_404(async_client: AsyncClient) -> N
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
-async def test_update_track_requires_admin(
-    async_client: AsyncClient, admin_token: str
-) -> None:
+async def test_update_track_requires_admin(async_client: AsyncClient, admin_token: str) -> None:
     """PATCH /tracks/{slug} should require admin role."""
     # Create track
     await async_client.post(
@@ -139,9 +135,7 @@ async def test_update_track_requires_admin(
     assert data["skill_focus_tags"] == ["new", "tags"]
 
 
-async def test_delete_track_soft_deletes(
-    async_client: AsyncClient, admin_token: str
-) -> None:
+async def test_delete_track_soft_deletes(async_client: AsyncClient, admin_token: str) -> None:
     """DELETE /tracks/{slug} should soft delete by setting is_active=False."""
     # Create track
     await async_client.post(

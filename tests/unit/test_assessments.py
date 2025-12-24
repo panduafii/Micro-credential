@@ -3,8 +3,8 @@ from __future__ import annotations
 from tests.utils import auth_headers
 
 
-def test_assessment_start_creates_payload(test_client) -> None:
-    response = test_client.post(
+def test_assessment_start_creates_payload(test_client_with_questions) -> None:
+    response = test_client_with_questions.post(
         "/assessments/start",
         json={"role_slug": "backend-engineer"},
         headers=auth_headers(),
@@ -15,13 +15,13 @@ def test_assessment_start_creates_payload(test_client) -> None:
     assert len(payload["questions"]) == 10
 
 
-def test_assessment_start_resumes_existing(test_client) -> None:
-    first = test_client.post(
+def test_assessment_start_resumes_existing(test_client_with_questions) -> None:
+    first = test_client_with_questions.post(
         "/assessments/start",
         json={"role_slug": "backend-engineer"},
         headers=auth_headers(),
     )
-    second = test_client.post(
+    second = test_client_with_questions.post(
         "/assessments/start",
         json={"role_slug": "backend-engineer"},
         headers=auth_headers(),
@@ -31,8 +31,8 @@ def test_assessment_start_resumes_existing(test_client) -> None:
     assert first.json()["assessment_id"] == second.json()["assessment_id"]
 
 
-def test_assessment_start_unknown_role_returns_404(test_client) -> None:
-    response = test_client.post(
+def test_assessment_start_unknown_role_returns_404(test_client_with_questions) -> None:
+    response = test_client_with_questions.post(
         "/assessments/start",
         json={"role_slug": "unknown"},
         headers=auth_headers(),

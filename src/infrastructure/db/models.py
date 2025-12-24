@@ -72,7 +72,7 @@ class QuestionTemplate(Base):
     question_type: Mapped[QuestionType] = mapped_column(Enum(QuestionType), nullable=False)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSON)
-    
+
     # Versioning and soft delete
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     previous_version_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
