@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.api.deps import get_db_session, require_roles
 from src.api.schemas.assessments import (
     AssessmentQuestion,

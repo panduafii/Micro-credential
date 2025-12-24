@@ -4,7 +4,17 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    JSON,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -22,7 +32,7 @@ class AssessmentStatus(str, enum.Enum):
     COMPLETED = "completed"
 
     @classmethod
-    def active_statuses(cls) -> tuple["AssessmentStatus", ...]:
+    def active_statuses(cls) -> tuple[AssessmentStatus, ...]:
         return (cls.DRAFT, cls.IN_PROGRESS)
 
 
@@ -34,7 +44,7 @@ class RoleCatalog(Base):
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
 
-    question_templates: Mapped[list["QuestionTemplate"]] = relationship(
+    question_templates: Mapped[list[QuestionTemplate]] = relationship(
         back_populates="role",
         cascade="all,delete",
     )
@@ -45,11 +55,13 @@ class QuestionTemplate(Base):
     __table_args__ = (UniqueConstraint("role_slug", "sequence", name="uq_question_sequence"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    role_slug: Mapped[str] = mapped_column(ForeignKey("role_catalog.slug", ondelete="CASCADE"), nullable=False)
+    role_slug: Mapped[str] = mapped_column(
+        ForeignKey("role_catalog.slug", ondelete="CASCADE"), nullable=False
+    )
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
     question_type: Mapped[QuestionType] = mapped_column(Enum(QuestionType), nullable=False)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
-    metadata: Mapped[dict | None] = mapped_column(JSON)
+    metadata_: Mapped[dict | None] = mapped_column("metadata", JSON)
 
     role: Mapped[RoleCatalog] = relationship(back_populates="question_templates")
 
@@ -59,19 +71,35 @@ class Assessment(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     owner_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    role_slug: Mapped[str] = mapped_column(ForeignKey("role_catalog.slug", ondelete="RESTRICT"), nullable=False)
-    status: Mapped[AssessmentStatus] = mapped_column(Enum(AssessmentStatus), default=AssessmentStatus.DRAFT, nullable=False, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    role_slug: Mapped[str] = mapped_column(
+        ForeignKey("role_catalog.slug", ondelete="RESTRICT"), nullable=False
+    )
+    status: Mapped[AssessmentStatus] = mapped_column(
+        Enum(AssessmentStatus),
+        default=AssessmentStatus.DRAFT,
+        nullable=False,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     role: Mapped[RoleCatalog] = relationship()
-    question_snapshots: Mapped[list["AssessmentQuestionSnapshot"]] = relationship(
+    question_snapshots: Mapped[list[AssessmentQuestionSnapshot]] = relationship(
         back_populates="assessment",
         cascade="all,delete-orphan",
         order_by="AssessmentQuestionSnapshot.sequence",
     )
-    responses: Mapped[list["AssessmentResponse"]] = relationship(back_populates="assessment", cascade="all,delete-orphan")
+    responses: Mapped[list[AssessmentResponse]] = relationship(
+        back_populates="assessment", cascade="all,delete-orphan"
+    )
 
 
 class AssessmentQuestionSnapshot(Base):
@@ -89,11 +117,11 @@ class AssessmentQuestionSnapshot(Base):
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
     question_type: Mapped[QuestionType] = mapped_column(Enum(QuestionType), nullable=False)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
-    metadata: Mapped[dict | None] = mapped_column(JSON)
+    metadata_: Mapped[dict | None] = mapped_column("metadata", JSON)
 
     assessment: Mapped[Assessment] = relationship(back_populates="question_snapshots")
     template: Mapped[QuestionTemplate | None] = relationship()
-    responses: Mapped[list["AssessmentResponse"]] = relationship(
+    responses: Mapped[list[AssessmentResponse]] = relationship(
         back_populates="question_snapshot",
         cascade="all,delete-orphan",
     )

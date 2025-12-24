@@ -6,8 +6,11 @@ from collections.abc import AsyncIterator, Iterator
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from src.api.deps import get_db_session
 from src.api.main import app
 from src.domain.reference_data import QUESTION_TEMPLATES, ROLE_DEFINITIONS

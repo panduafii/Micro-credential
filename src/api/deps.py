@@ -4,11 +4,10 @@ from collections.abc import AsyncIterator, Callable, Iterable, Sequence
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.auth import Role, TokenError, create_access_token, decode_access_token
 from src.core.config import get_settings
 from src.domain import User
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.infrastructure.db.session import get_session
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -45,7 +44,8 @@ def require_roles(required_roles: Sequence[str]) -> Callable[[User], User]:
 
     invalid_roles = [role for role in required_roles if role not in allowed]
     if invalid_roles:
-        raise ValueError(f"Unsupported role(s) requested: {', '.join(invalid_roles)}")
+        joined_roles = ", ".join(invalid_roles)
+        raise ValueError(f"Unsupported role(s) requested: {joined_roles}")
 
     required = set(required_roles)
 

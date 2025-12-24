@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.api.deps import get_db_session
 from src.api.schemas.tracks import TrackItem, TracksResponse
 from src.infrastructure.db.models import QuestionTemplate, RoleCatalog
@@ -22,9 +21,8 @@ async def list_tracks(session: AsyncSession = Depends(get_db_session)) -> Tracks
     role_stmt: Select[tuple[RoleCatalog]] = select(RoleCatalog).order_by(RoleCatalog.name)
     roles = (await session.execute(role_stmt)).scalars().all()
 
-    count_stmt = (
-        select(QuestionTemplate.role_slug, func.count(QuestionTemplate.id))
-        .group_by(QuestionTemplate.role_slug)
+    count_stmt = select(QuestionTemplate.role_slug, func.count(QuestionTemplate.id)).group_by(
+        QuestionTemplate.role_slug
     )
     count_pairs = (await session.execute(count_stmt)).all()
     question_count_map = {slug: count for slug, count in count_pairs}

@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.domain import User
 from src.infrastructure.db.models import (
     Assessment,
@@ -57,7 +56,12 @@ class AssessmentService:
         return {
             "assessment_id": assessment.id,
             "status": assessment.status.value,
-            "role": {"slug": role.slug, "name": role.name, "description": role.description, "question_count": len(questions)},
+            "role": {
+                "slug": role.slug,
+                "name": role.name,
+                "description": role.description,
+                "question_count": len(questions),
+            },
             "questions": [asdict(question) for question in questions],
         }
 
@@ -81,9 +85,15 @@ class AssessmentService:
     async def _create_assessment(self, *, user_id: str, role_slug: str) -> Assessment:
         templates = await self._get_question_templates(role_slug)
         if not templates:
-            raise MissingQuestionTemplateError(f"Role '{role_slug}' belum memiliki question templates")
+            raise MissingQuestionTemplateError(
+                f"Role '{role_slug}' belum memiliki question templates"
+            )
 
-        assessment = Assessment(owner_id=user_id, role_slug=role_slug, status=AssessmentStatus.DRAFT)
+        assessment = Assessment(
+            owner_id=user_id,
+            role_slug=role_slug,
+            status=AssessmentStatus.DRAFT,
+        )
         self.session.add(assessment)
         await self.session.flush()
 
@@ -94,7 +104,7 @@ class AssessmentService:
                 sequence=template.sequence,
                 question_type=template.question_type,
                 prompt=template.prompt,
-                metadata=template.metadata or {},
+                metadata=template.metadata_ or {},
             )
             self.session.add(snapshot)
 
@@ -135,7 +145,7 @@ class AssessmentService:
                     sequence=snapshot.sequence,
                     question_type=snapshot.question_type.value,
                     prompt=snapshot.prompt,
-                    metadata=snapshot.metadata or {},
+                    metadata=snapshot.metadata_ or {},
                     response=response.response_data if response else None,
                 )
             )

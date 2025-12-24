@@ -7,9 +7,8 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-
 from src.core.config import get_settings
-from src.infrastructure.db import models  # noqa: F401  ensure models imported
+from src.infrastructure.db import models  # noqa: F401
 from src.infrastructure.db.base import Base
 
 config = context.config

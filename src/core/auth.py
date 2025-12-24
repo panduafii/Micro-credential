@@ -34,7 +34,8 @@ def create_access_token(
 
     invalid_roles = [role for role in roles if role not in settings.allowed_roles]
     if invalid_roles:
-        raise TokenError(f"Unsupported role(s): {', '.join(invalid_roles)}")
+        joined_roles = ", ".join(invalid_roles)
+        raise TokenError(f"Unsupported role(s): {joined_roles}")
 
     now = datetime.now(UTC)
     ttl = expires_delta or timedelta(seconds=settings.access_token_ttl_seconds)
@@ -74,4 +75,3 @@ def _ensure_roles(roles: Iterable[str]) -> None:
     for role in roles:
         if not Role.contains(role):
             raise TokenError(f"Unsupported role: {role}")
-

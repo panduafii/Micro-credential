@@ -26,4 +26,3 @@ async def health_check() -> dict:
     }
     logger.info("health_probe", **payload)
     return payload
-

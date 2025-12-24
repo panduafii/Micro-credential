@@ -49,6 +49,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+ignore = ["B008"]  # Allow function calls in argument defaults (needed for FastAPI Depends)
 
 [tool.ruff.format]
 preview = true

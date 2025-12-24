@@ -14,7 +14,9 @@ ROLE_DEFINITIONS = [
 ]
 
 
-def make_question(role_slug: str, sequence: int, qtype: str, prompt: str, dimension: str) -> dict[str, object]:
+def make_question(
+    role_slug: str, sequence: int, qtype: str, prompt: str, dimension: str
+) -> dict[str, object]:
     return {
         "role_slug": role_slug,
         "sequence": sequence,
@@ -29,42 +31,62 @@ QUESTION_TEMPLATES = [
         "backend-engineer",
         1,
         "theoretical",
-        "Jelaskan perbedaan utama antara FastAPI async dengan framework synchronous untuk API backend berbeban tinggi.",
+        (
+            "Jelaskan perbedaan utama antara FastAPI async dengan "
+            "framework synchronous untuk API backend berbeban tinggi."
+        ),
         "architecture",
     ),
     make_question(
         "backend-engineer",
         2,
         "theoretical",
-        "Apa arti idempotensi pada endpoint submit assessment dan bagaimana cara menjaganya ketika job async digunakan?",
+        (
+            "Apa arti idempotensi pada endpoint submit assessment dan "
+            "bagaimana cara menjaganya ketika job async digunakan?"
+        ),
         "reliability",
     ),
     make_question(
         "backend-engineer",
         3,
         "theoretical",
-        "Bandingkan modular monolith vs microservice untuk MVP empat minggu yang mengandalkan RAG dan GPT workers.",
+        (
+            "Bandingkan modular monolith vs microservice untuk MVP "
+            "empat minggu yang mengandalkan RAG dan GPT workers."
+        ),
         "tradeoff",
     ),
     make_question(
         "backend-engineer",
         4,
         "essay",
-        "Rancang alur scoring hybrid (rule + GPT) agar SLA <10 detik tercapai. Jelaskan komponen utama dan komunikasi antar komponen.",
+        (
+            "Rancang alur scoring hybrid (rule + GPT) agar SLA <10 "
+            "detik tercapai. Jelaskan komponen utama dan komunikasi "
+            "antar komponen."
+        ),
         "system-design",
     ),
     make_question(
         "backend-engineer",
         5,
         "essay",
-        "Platform memiliki requirement audit trail. Jelaskan pendekatan logging dan storage yang memastikan jejak rekomendasi bisa dilacak.",
+        (
+            "Platform memiliki requirement audit trail. Jelaskan "
+            "pendekatan logging dan storage yang memastikan jejak "
+            "rekomendasi bisa dilacak."
+        ),
         "observability",
     ),
     make_question(
         "backend-engineer",
         6,
         "essay",
-        "Bagaimana strategi fallback ketika GPT atau vector store gagal namun hasil rekomendasi harus tetap diberikan?",
+        (
+            "Bagaimana strategi fallback ketika GPT atau vector store "
+            "gagal namun hasil rekomendasi harus tetap diberikan?"
+        ),
         "resilience",
     ),
     make_question(
@@ -78,7 +100,7 @@ QUESTION_TEMPLATES = [
         "backend-engineer",
         8,
         "profile",
-        "Tumpukan teknologi apa yang paling familiar untuk menjalankan FastAPI di produksi?",
+        ("Tumpukan teknologi apa yang paling familiar untuk " "menjalankan FastAPI di produksi?"),
         "stack",
     ),
     make_question(
@@ -99,14 +121,20 @@ QUESTION_TEMPLATES = [
         "data-analyst",
         1,
         "theoretical",
-        "Apa arti explainability dalam konteks rekomendasi micro-credential dan bagaimana cara mengukurnya?",
+        (
+            "Apa arti explainability dalam konteks rekomendasi "
+            "micro-credential dan bagaimana cara mengukurnya?"
+        ),
         "explainability",
     ),
     make_question(
         "data-analyst",
         2,
         "theoretical",
-        "Mengapa latency penting untuk trust advisor dan bagaimana cara memvisualisasikan SLA di dashboard?",
+        (
+            "Mengapa latency penting untuk trust advisor dan bagaimana "
+            "cara memvisualisasikan SLA di dashboard?"
+        ),
         "observability",
     ),
     make_question(
@@ -120,21 +148,31 @@ QUESTION_TEMPLATES = [
         "data-analyst",
         4,
         "essay",
-        "Deskripsikan dataset minimal yang dibutuhkan untuk memvalidasi skor rekomendasi serta bagaimana Anda menilai kualitasnya.",
+        (
+            "Deskripsikan dataset minimal yang dibutuhkan untuk "
+            "memvalidasi skor rekomendasi serta bagaimana Anda menilai "
+            "kualitasnya."
+        ),
         "dataset",
     ),
     make_question(
         "data-analyst",
         5,
         "essay",
-        "Bagaimana memetakan feedback advisor/students menjadi sinyal yang siap dipakai tuning model rekomendasi?",
+        (
+            "Bagaimana memetakan feedback advisor/students menjadi "
+            "sinyal yang siap dipakai tuning model rekomendasi?"
+        ),
         "feedback",
     ),
     make_question(
         "data-analyst",
         6,
         "essay",
-        "Tulis contoh ringkasan naratif hasil assessment yang transparan dan mudah dipahami bagi mahasiswa.",
+        (
+            "Tulis contoh ringkasan naratif hasil assessment yang "
+            "transparan dan mudah dipahami bagi mahasiswa."
+        ),
         "storytelling",
     ),
     make_question(
