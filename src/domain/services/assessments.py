@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Select, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.domain import User
@@ -14,6 +15,9 @@ from src.infrastructure.db.models import (
     QuestionTemplate,
     RoleCatalog,
 )
+
+if TYPE_CHECKING:
+    from sqlalchemy import Select
 
 
 class RoleNotFoundError(Exception):

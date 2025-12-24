@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends
-from sqlalchemy import Select, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import get_db_session
 from src.api.schemas.tracks import TrackItem, TracksResponse
 from src.infrastructure.db.models import QuestionTemplate, RoleCatalog
+
+if TYPE_CHECKING:
+    from sqlalchemy import Select
 
 router = APIRouter(prefix="/tracks", tags=["Tracks"])
 
