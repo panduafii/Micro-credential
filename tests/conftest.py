@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator, Iterator
 
 import pytest
 from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -13,6 +14,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from src.api.deps import get_db_session
 from src.api.main import app
+from src.core.auth import create_access_token
 from src.domain.reference_data import QUESTION_TEMPLATES, ROLE_DEFINITIONS
 from src.infrastructure.db.base import Base
 from src.infrastructure.db.models import QuestionTemplate, RoleCatalog
@@ -61,3 +63,23 @@ async def seed_reference_data(session: AsyncSession) -> None:
     for template in QUESTION_TEMPLATES:
         session.add(QuestionTemplate(**template))
     await session.commit()
+
+
+@pytest.fixture()
+async def async_client(test_client: TestClient) -> AsyncIterator[AsyncClient]:
+    """Async HTTP client for testing async routes."""
+    transport = ASGITransport(app=app)  # type: ignore
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+
+
+@pytest.fixture()
+def admin_token() -> str:
+    """Generate admin JWT token for testing."""
+    return create_access_token("admin-user", roles=["admin"])
+
+
+@pytest.fixture()
+def student_token() -> str:
+    """Generate student JWT token for testing."""
+    return create_access_token("student-user", roles=["student"])

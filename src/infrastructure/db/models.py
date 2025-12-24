@@ -43,6 +43,15 @@ class RoleCatalog(Base):
     slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
+    skill_focus_tags: Mapped[list[str] | None] = mapped_column(JSON)
+    question_mix_overrides: Mapped[dict[str, int] | None] = mapped_column(JSON)
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
 
     question_templates: Mapped[list[QuestionTemplate]] = relationship(
         back_populates="role",
