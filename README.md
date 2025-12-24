@@ -18,9 +18,9 @@
    ```bash
    docker compose up --build
    ```
-4. Run database migrations (placeholder):
+4. Run database migrations to install reference data (roles, question templates):
    ```bash
-   poetry run alembic upgrade head  # TODO: implement migrations
+   poetry run alembic upgrade head
    ```
 
 ## Local Development
@@ -31,6 +31,16 @@
 - Start the worker:
   ```bash
   poetry run python -m src.workers.worker
+  ```
+- Check available tracks:
+  ```bash
+  curl http://localhost:8000/tracks
+  ```
+- Start/resume an assessment (requires JWT from `/tests/utils.py` helper or issue_smoke_token):
+  ```bash
+  curl -H "Authorization: Bearer <token>" \
+       -X POST http://localhost:8000/assessments/start \
+       -d '{"role_slug": "backend-engineer"}'
   ```
 - Execute linting and tests:
   ```bash
@@ -48,4 +58,3 @@ Key directories follow the architecture guide:
 - `src/domain`: Shared domain models between services.
 - `src/infrastructure`: Repositories and data access abstractions.
 - `tests`: Pytest-based unit and integration suites.
-
