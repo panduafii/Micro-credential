@@ -6,6 +6,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     Enum,
     ForeignKey,
@@ -71,6 +72,15 @@ class QuestionTemplate(Base):
     question_type: Mapped[QuestionType] = mapped_column(Enum(QuestionType), nullable=False)
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSON)
+    
+    # Versioning and soft delete
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    previous_version_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
     role: Mapped[RoleCatalog] = relationship(back_populates="question_templates")
 

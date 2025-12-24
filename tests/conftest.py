@@ -46,6 +46,9 @@ def test_client(event_loop: asyncio.AbstractEventLoop) -> Iterator[TestClient]:
 
     app.dependency_overrides[get_db_session] = override_db_session
     with TestClient(app) as client:
+        # Store engine and session_factory for use in other fixtures
+        client.engine = engine  # type: ignore
+        client.session_factory = session_factory  # type: ignore
         yield client
     app.dependency_overrides.pop(get_db_session, None)
     event_loop.run_until_complete(engine.dispose())
@@ -60,8 +63,7 @@ async def seed_reference_data(session: AsyncSession) -> None:
         session.add(RoleCatalog(**role))
     await session.flush()
 
-    for template in QUESTION_TEMPLATES:
-        session.add(QuestionTemplate(**template))
+    # For unit tests we skip seeding question templates to avoid conflicts; tests insert their own data
     await session.commit()
 
 
@@ -71,6 +73,14 @@ async def async_client(test_client: TestClient) -> AsyncIterator[AsyncClient]:
     transport = ASGITransport(app=app)  # type: ignore
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
+
+
+@pytest.fixture()
+async def db(test_client: TestClient) -> AsyncIterator[AsyncSession]:
+    """Provide a database session for tests that need direct DB access."""
+    session_factory = test_client.session_factory  # type: ignore
+    async with session_factory() as session:
+        yield session
 
 
 @pytest.fixture()
