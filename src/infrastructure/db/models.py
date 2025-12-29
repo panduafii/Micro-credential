@@ -9,6 +9,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -147,6 +148,9 @@ class Assessment(Base):
     jobs: Mapped[list[AsyncJob]] = relationship(
         back_populates="assessment", cascade="all,delete-orphan"
     )
+    recommendation: Mapped[Recommendation | None] = relationship(
+        back_populates="assessment", cascade="all,delete-orphan", uselist=False
+    )
 
 
 class AssessmentQuestionSnapshot(Base):
@@ -264,3 +268,87 @@ class AsyncJob(Base):
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     assessment: Mapped[Assessment] = relationship(back_populates="jobs")
+
+
+# Story 3.1 & 3.2: Recommendations
+class Recommendation(Base):
+    """Stores fusion summary and overall recommendation for an assessment."""
+
+    __tablename__ = "recommendations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    assessment_id: Mapped[str] = mapped_column(
+        ForeignKey("assessments.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    summary: Mapped[str] = mapped_column(Text, nullable=False)  # Fusion narrative
+    overall_score: Mapped[float] = mapped_column(Float, nullable=False)
+    degraded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    rag_query: Mapped[str | None] = mapped_column(Text, nullable=True)  # Query used for RAG
+    rag_traces: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # RAG debug info
+    score_breakdown: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    processing_duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    assessment: Mapped[Assessment] = relationship(back_populates="recommendation")
+    items: Mapped[list[RecommendationItem]] = relationship(
+        back_populates="recommendation",
+        cascade="all,delete-orphan",
+        order_by="RecommendationItem.rank",
+    )
+
+
+class RecommendationItem(Base):
+    """Individual recommended credential/course from RAG retrieval."""
+
+    __tablename__ = "recommendation_items"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    recommendation_id: Mapped[str] = mapped_column(
+        ForeignKey("recommendations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    rank: Mapped[int] = mapped_column(Integer, nullable=False)  # 1 = top recommendation
+    course_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    course_title: Mapped[str] = mapped_column(String(512), nullable=False)
+    course_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    relevance_score: Mapped[float] = mapped_column(Float, nullable=False)
+    match_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    course_metadata: Mapped[dict | None] = mapped_column(
+        JSON, nullable=True
+    )  # "metadata" is reserved
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    recommendation: Mapped[Recommendation] = relationship(back_populates="items")
+
+
+# Story 3.3: Feedback
+class Feedback(Base):
+    """Stores advisor/student feedback on recommendations."""
+
+    __tablename__ = "feedbacks"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    recommendation_id: Mapped[str] = mapped_column(
+        ForeignKey("recommendations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    user_role: Mapped[str] = mapped_column(String(20), nullable=False)  # student, advisor
+    rating_relevance: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1-5
+    rating_acceptance: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1-5
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    track_slug: Mapped[str | None] = mapped_column(String(64), nullable=True)  # For analytics
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    recommendation: Mapped[Recommendation] = relationship()

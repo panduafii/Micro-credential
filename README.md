@@ -88,6 +88,12 @@ After starting the API, access interactive documentation at:
 | GET | `/assessments/{id}/status` | Student | Get progress status |
 | POST | `/assessments/{id}/webhook` | Student | Register webhook URL |
 
+### Available Endpoints (Epic 3)
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/assessments/{id}/result` | Student | Get assessment result with recommendations |
+| POST | `/assessments/{id}/feedback` | Student | Submit feedback on recommendations |
+
 ### Generate Test Token
 ```python
 from src.core.auth import create_access_token
@@ -137,7 +143,10 @@ git push
 - [x] Story 2.2: GPT Essay Scoring Worker
 - [x] Story 2.3: Status Polling, Webhooks, and Idempotency
 
-### Epic 3: Recommendations, Transparency, and Feedback Loop 🔜
+### Epic 3: Recommendations, Transparency, and Feedback Loop ✅
+- [x] Story 3.1: RAG Retrieval Service
+- [x] Story 3.2: Fusion Summary and Result Endpoint
+- [x] Story 3.3: Feedback Collection### Epic 3: Recommendations, Transparency, and Feedback Loop 🔜
 - [ ] Story 3.1: RAG-Powered Credential Recommendations
 - [ ] Story 3.2: Transparency Dashboard
 - [ ] Story 3.3: Feedback Collection and Analytics

@@ -120,3 +120,73 @@ class WebhookRegisterResponse(BaseModel):
     assessment_id: str
     webhook_url: str
     registered_at: str
+
+
+# Story 3.2: Assessment Result
+class RecommendationItemResponse(BaseModel):
+    """A single recommended course."""
+
+    rank: int
+    course_id: str
+    course_title: str
+    course_url: str | None = None
+    relevance_score: float
+    match_reason: str | None = None
+    metadata: dict | None = None
+
+
+class ScoreBreakdownResponse(BaseModel):
+    """Score breakdown by category."""
+
+    theoretical: dict | None = None
+    profile: dict | None = None
+    essay: dict | None = None
+    overall: dict | None = None
+
+
+class AssessmentResultResponse(BaseModel):
+    """Full assessment result with recommendations."""
+
+    assessment_id: str
+    status: str
+    completed: bool
+    summary: str | None = None
+    overall_score: float | None = None
+    score_breakdown: ScoreBreakdownResponse | None = None
+    recommendations: list[RecommendationItemResponse] = Field(default_factory=list)
+    rag_traces: dict | None = None
+    degraded: bool = False
+    processing_duration_ms: int | None = None
+    completed_at: str | None = None
+    message: str | None = None
+
+
+# Story 3.3: Feedback
+class FeedbackCreateRequest(BaseModel):
+    """Request to submit feedback on recommendations."""
+
+    rating_relevance: int | None = Field(
+        None,
+        ge=1,
+        le=5,
+        description="Relevance rating (1-5)",
+    )
+    rating_acceptance: int | None = Field(
+        None,
+        ge=1,
+        le=5,
+        description="Acceptance/usefulness rating (1-5)",
+    )
+    comment: str | None = Field(None, max_length=2000, description="Optional feedback comment")
+
+
+class FeedbackResponse(BaseModel):
+    """Response after submitting feedback."""
+
+    id: str
+    recommendation_id: str
+    user_id: str
+    rating_relevance: int | None = None
+    rating_acceptance: int | None = None
+    comment: str | None = None
+    created_at: str

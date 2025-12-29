@@ -5,13 +5,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.deps import get_db_session, require_roles
 from src.api.schemas.assessments import (
     AssessmentQuestion,
+    AssessmentResultResponse,
     AssessmentStartRequest,
     AssessmentStartResponse,
     AssessmentStatusResponse,
     AssessmentSubmitResponse,
     EssayScoreStatus,
+    FeedbackCreateRequest,
+    FeedbackResponse,
     JobProgress,
+    RecommendationItemResponse,
     ScoreBreakdownItem,
+    ScoreBreakdownResponse,
     ScoreTypeDetail,
     StageProgress,
     SubmissionScores,
@@ -25,6 +30,11 @@ from src.domain.services.assessments import (
     MissingQuestionTemplateError,
     RoleNotFoundError,
 )
+from src.domain.services.feedback import (
+    FeedbackService,
+    RecommendationNotFoundError,
+)
+from src.domain.services.fusion import FusionService
 from src.domain.services.status import (
     AssessmentNotFoundError as StatusNotFoundError,
 )
@@ -222,4 +232,97 @@ async def register_webhook(
         assessment_id=result["assessment_id"],
         webhook_url=result["webhook_url"],
         registered_at=result["registered_at"],
+    )
+
+
+# Story 3.2: Assessment Result
+@router.get("/{assessment_id}/result", response_model=AssessmentResultResponse)
+async def get_assessment_result(
+    assessment_id: str,
+    session: AsyncSession = Depends(get_db_session),
+    user: User = Depends(require_roles(["student"])),
+) -> AssessmentResultResponse:
+    """
+    Get assessment result with recommendations (Story 3.2).
+
+    Returns:
+    - Summary narrative
+    - Score breakdown
+    - Ranked credential recommendations
+    - RAG traces for transparency
+    """
+    service = FusionService(session)
+    try:
+        result = await service.get_assessment_result(
+            assessment_id=assessment_id,
+            user_id=user.user_id,
+        )
+    except StatusNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except StatusNotOwnedError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+    # Convert to response model
+    return AssessmentResultResponse(
+        assessment_id=result["assessment_id"],
+        status=result["status"],
+        completed=result["completed"],
+        summary=result.get("summary"),
+        overall_score=result.get("overall_score"),
+        score_breakdown=(
+            ScoreBreakdownResponse(**result["score_breakdown"])
+            if result.get("score_breakdown")
+            else None
+        ),
+        recommendations=[
+            RecommendationItemResponse(**rec) for rec in result.get("recommendations", [])
+        ],
+        rag_traces=result.get("rag_traces"),
+        degraded=result.get("degraded", False),
+        processing_duration_ms=result.get("processing_duration_ms"),
+        completed_at=result.get("completed_at"),
+        message=result.get("message"),
+    )
+
+
+# Story 3.3: Feedback
+@router.post(
+    "/{assessment_id}/feedback",
+    response_model=FeedbackResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def submit_feedback(
+    assessment_id: str,
+    payload: FeedbackCreateRequest,
+    session: AsyncSession = Depends(get_db_session),
+    user: User = Depends(require_roles(["student", "advisor"])),
+) -> FeedbackResponse:
+    """
+    Submit feedback on assessment recommendations (Story 3.3).
+
+    Both students and advisors can submit feedback.
+    """
+    service = FeedbackService(session)
+    try:
+        result = await service.create_feedback(
+            assessment_id=assessment_id,
+            user_id=user.user_id,
+            user_role=user.roles[0] if user.roles else "student",
+            rating_relevance=payload.rating_relevance,
+            rating_acceptance=payload.rating_acceptance,
+            comment=payload.comment,
+        )
+    except StatusNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except RecommendationNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return FeedbackResponse(
+        id=result["id"],
+        recommendation_id=result["recommendation_id"],
+        user_id=result["user_id"],
+        rating_relevance=result.get("rating_relevance"),
+        rating_acceptance=result.get("rating_acceptance"),
+        comment=result.get("comment"),
+        created_at=result["created_at"],
     )
