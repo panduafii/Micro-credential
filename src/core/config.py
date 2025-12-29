@@ -27,6 +27,22 @@ class Settings(BaseSettings):
         validation_alias="REDIS_URL",
     )
 
+    # OpenAI/GPT Configuration
+    openai_api_key: str = Field(
+        default="",
+        validation_alias="OPENAI_API_KEY",
+    )
+    openai_model: str = Field(
+        default="gpt-4o-mini",
+        validation_alias="OPENAI_MODEL",
+    )
+    openai_base_url: str = Field(
+        default="https://api.openai.com/v1",
+        validation_alias="OPENAI_BASE_URL",
+    )
+    gpt_max_retries: int = Field(default=3, validation_alias="GPT_MAX_RETRIES")
+    gpt_timeout_seconds: int = Field(default=60, validation_alias="GPT_TIMEOUT_SECONDS")
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="allow")
 
 
