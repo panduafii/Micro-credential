@@ -11,7 +11,6 @@ import asyncio
 from typing import TYPE_CHECKING, Any
 
 import structlog
-
 from src.domain.services.gpt_scoring import (
     EssayScoringResult,
     GPTEssayScoringService,
@@ -122,15 +121,13 @@ async def _score_essay_async(
 
 
 async def _generate_recommendations_async(user_id: str, context: dict[str, Any]) -> dict[str, Any]:
+    """Placeholder for RAG recommendations - Story 2.3."""
     recommendations = context.get("recommendations", [])
-    async with UnitOfWork() as uow:
-        await uow.recommendations.save_recommendations(
-            user_id,
-            recommendations=recommendations,
-        )
+    # TODO: Implement with actual RAG service in Story 2.3
     result = {
         "user_id": user_id,
         "status": "queued",
+        "recommendations": recommendations,
     }
     logger.info("recommendations_enqueued", **result)
     return result

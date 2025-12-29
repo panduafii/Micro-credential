@@ -2,8 +2,8 @@
 
 from src.domain.services.assessments import AssessmentService
 from src.domain.services.gpt_scoring import (
-    EssayScoringResult,
     EssayScoreResult,
+    EssayScoringResult,
     GPTEssayScoringService,
     GPTScoringError,
 )

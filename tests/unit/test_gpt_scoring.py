@@ -14,12 +14,8 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.domain.services.gpt_scoring import (
-    ESSAY_RUBRIC_DIMENSIONS,
-    EssayScoringResult,
     GPTEssayScoringService,
-    GPTScoringError,
 )
 from src.infrastructure.db.models import (
     Assessment,
@@ -34,8 +30,7 @@ from src.infrastructure.db.models import (
     RoleCatalog,
     Score,
 )
-from src.libs.gpt_client import GPTClientProtocol, GPTResponse
-
+from src.libs.gpt_client import GPTResponse
 
 # ============================================================================
 # Mock GPT Client
@@ -175,7 +170,11 @@ async def essay_assessment(
         assessment_id=assessment.id,
         question_snapshot_id=snapshot.id,
         response_data={
-            "answer": "Machine Learning adalah cabang dari kecerdasan buatan yang memungkinkan sistem untuk belajar dari data. Contoh penerapannya termasuk pengenalan gambar, rekomendasi produk, dan deteksi spam."
+            "answer": (
+                "Machine Learning adalah cabang dari kecerdasan buatan yang "
+                "memungkinkan sistem untuk belajar dari data. Contoh penerapannya "
+                "termasuk pengenalan gambar, rekomendasi produk, dan deteksi spam."
+            )
         },
     )
     db.add(response)

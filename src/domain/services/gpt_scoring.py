@@ -14,23 +14,18 @@ from typing import TYPE_CHECKING, Any
 import structlog
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
-
 from src.infrastructure.db.models import (
     Assessment,
     AssessmentQuestionSnapshot,
     AssessmentResponse,
-    AssessmentStatus,
     AsyncJob,
     JobStatus,
-    JobType,
     QuestionType,
     Score,
 )
 from src.libs.gpt_client import (
     GPTClientError,
     GPTClientProtocol,
-    GPTResponse,
     OpenAIClient,
 )
 
@@ -49,7 +44,8 @@ ESSAY_RUBRIC_DIMENSIONS = [
 ]
 
 # System prompt for deterministic essay scoring
-ESSAY_SCORING_SYSTEM_PROMPT = """You are an expert essay evaluator for a micro-credential assessment platform.
+ESSAY_SCORING_SYSTEM_PROMPT = """You are an expert essay evaluator for a \
+micro-credential assessment platform.
 Your task is to score essays based on the following rubric dimensions:
 - relevance (0-100): How well does the answer address the question asked
 - depth (0-100): Level of analysis, critical thinking, and understanding shown

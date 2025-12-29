@@ -6,8 +6,8 @@ Create Date: 2025-12-30
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "202412250005"
@@ -91,7 +91,11 @@ def upgrade() -> None:
         ),
         sa.Column(
             "status",
-            sa.Enum("queued", "in_progress", "completed", "failed", name="jobstatus", create_type=False),
+            sa.Enum(
+                "queued", "in_progress", "completed", "failed",
+                name="jobstatus",
+                create_type=False,
+            ),
             nullable=False,
             index=True,
             server_default="queued",

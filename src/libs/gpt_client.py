@@ -8,14 +8,12 @@ and exponential backoff.
 from __future__ import annotations
 
 import asyncio
-import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
 import httpx
 import structlog
-
 from src.core.config import get_settings
 
 logger = structlog.get_logger()
@@ -83,7 +81,9 @@ class OpenAIClient:
         self.base_url = base_url or settings.openai_base_url
         self.model = model or settings.openai_model
         self.max_retries = max_retries if max_retries is not None else settings.gpt_max_retries
-        self.timeout = timeout_seconds if timeout_seconds is not None else settings.gpt_timeout_seconds
+        self.timeout = (
+            timeout_seconds if timeout_seconds is not None else settings.gpt_timeout_seconds
+        )
 
         if not self.api_key:
             logger.warning("openai_api_key_missing", msg="OPENAI_API_KEY not configured")
@@ -162,7 +162,7 @@ class OpenAIClient:
                         status_code=response.status_code,
                     )
 
-            except httpx.TimeoutException as e:
+            except httpx.TimeoutException:
                 last_error = GPTTimeoutError(f"Request timed out (attempt {attempt + 1})")
                 await logger.awarning(
                     "gpt_timeout",

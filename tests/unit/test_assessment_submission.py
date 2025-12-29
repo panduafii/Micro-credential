@@ -17,8 +17,6 @@ import uuid
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-
-from tests.utils import auth_headers
 from src.infrastructure.db.models import (
     Assessment,
     AssessmentResponse,
@@ -27,6 +25,8 @@ from src.infrastructure.db.models import (
     JobStatus,
     JobType,
 )
+
+from tests.utils import auth_headers
 
 
 class TestSubmitAssessment:
