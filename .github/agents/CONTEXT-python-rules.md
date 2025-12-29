@@ -36,7 +36,26 @@ poetry run pytest tests/          # Tests
 
 ### 4. Line Length Limit
 - Maximum: **100 characters**
-- Use parentheses for multi-line continuation
+- Use parentheses or backslash for multi-line continuation:
+
+```python
+# String continuation with backslash
+PROMPT = """You are an expert evaluator for a \
+micro-credential assessment platform."""
+
+# Assignment with parentheses
+self.timeout = (
+    timeout_seconds if timeout_seconds else settings.timeout
+)
+
+# Long strings in tests/data
+response_data = {
+    "answer": (
+        "First part of the long string "
+        "second part of the long string"
+    )
+}
+```
 
 ### 5. Import Order (Ruff I001)
 ```python
@@ -48,6 +67,63 @@ from pathlib import Path
 from fastapi import FastAPI          # 3. Third-party
 
 from src.api import routes           # 4. Local
+```
+**RUN**: `ruff check --fix .` to auto-sort imports.
+
+### 6. Unused Imports (F401)
+- Run `ruff check --fix .` to auto-remove unused imports
+- Don't import "just in case"
+
+### 7. Unused Variables (F841)
+```python
+# BAD
+except Exception as e:  # e never used!
+    log.error("Failed")
+
+# GOOD
+except Exception:
+    log.error("Failed")
+```
+
+### 8. Undefined Names (F821)
+- Always verify class/function is imported before use
+- Never use placeholder imports - add TODO comment instead
+
+### 9. Test Fixture Names
+- Use `db` for database session (NOT `async_session`)
+- Use `test_client` for HTTP client
+- Check `conftest.py` for actual fixture names
+
+### 10. Dataclass Required Fields
+Include ALL required fields when creating dataclass instances:
+```python
+# GPTResponse needs ALL fields
+GPTResponse(
+    content="...",
+    model="gpt-4o-mini",
+    prompt_tokens=100,
+    completion_tokens=50,
+    total_tokens=150,      # Required!
+    finish_reason="stop",  # Required!
+)
+```
+
+### 11. Model Field Names
+Check actual model definition before creating instances:
+```python
+# BAD - guessing field names
+AssessmentQuestionSnapshot(source_question_id=1)
+
+# GOOD - check model first
+AssessmentQuestionSnapshot(question_template_id=1)
+```
+
+### 12. Enum Values
+Verify enum values exist before using:
+```python
+# Check the enum definition first!
+# JobStatus.QUEUED exists, JobStatus.PENDING doesn't!
+job = AsyncJob(status=JobStatus.QUEUED)  # GOOD
 ```
 
 ## Agent Workflow
@@ -67,6 +143,19 @@ from src.api import routes           # 4. Local
    - Verify all checks pass
    - Ensure no syntax errors
    - Check CI will succeed
+
+## Pre-Commit Checklist (MUST DO)
+
+Before EVERY commit:
+1. [ ] `poetry run ruff check .` - no lint errors
+2. [ ] `poetry run ruff format --check .` - formatted
+3. [ ] `poetry run pytest tests/` - tests pass
+4. [ ] No line > 100 characters
+5. [ ] No unused imports (F401)
+6. [ ] No undefined names (F821)
+7. [ ] All dataclass fields provided
+8. [ ] Correct model field names
+9. [ ] Correct enum values
 
 ## Quick References
 
