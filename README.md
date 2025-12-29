@@ -84,6 +84,9 @@ After starting the API, access interactive documentation at:
 | PATCH | `/questions/{id}` | Admin | Update question (versioned) |
 | DELETE | `/questions/{id}` | Admin | Soft-delete question |
 | POST | `/assessments/start` | Student | Start/resume assessment |
+| POST | `/assessments/{id}/submit` | Student | Submit for scoring |
+| GET | `/assessments/{id}/status` | Student | Get progress status |
+| POST | `/assessments/{id}/webhook` | Student | Register webhook URL |
 
 ### Generate Test Token
 ```python
@@ -129,10 +132,10 @@ git push
 - [x] Story 1.3: Question Bank CRUD and Versioning
 - [x] Story 1.4: Role-Gated Assessment Start
 
-### Epic 2: Async Scoring and Persistence Backbone 🔜
-- [ ] Story 2.1: Submission Finalization and Rule Scoring
-- [ ] Story 2.2: GPT Essay Scoring Worker
-- [ ] Story 2.3: Status Polling, Webhooks, and Idempotency
+### Epic 2: Async Scoring and Persistence Backbone ✅
+- [x] Story 2.1: Submission Finalization and Rule Scoring
+- [x] Story 2.2: GPT Essay Scoring Worker
+- [x] Story 2.3: Status Polling, Webhooks, and Idempotency
 
 ### Epic 3: Recommendations, Transparency, and Feedback Loop 🔜
 - [ ] Story 3.1: RAG-Powered Credential Recommendations
