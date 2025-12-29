@@ -69,9 +69,7 @@ async def submit_assessment(
     """
     service = SubmissionService(session)
     try:
-        result = await service.submit_assessment(
-            assessment_id=assessment_id, user_id=user.user_id
-        )
+        result = await service.submit_assessment(assessment_id=assessment_id, user_id=user.user_id)
     except AssessmentNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except AssessmentNotOwnedError as exc:

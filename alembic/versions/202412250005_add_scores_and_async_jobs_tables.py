@@ -22,18 +22,18 @@ def upgrade() -> None:
         "assessments",
         sa.Column("degraded", sa.Boolean(), nullable=False, server_default="false"),
     )
-    
+
     # Add new assessment statuses (submitted, failed)
     # For PostgreSQL, we need to alter the enum type
     op.execute("ALTER TYPE assessmentstatus ADD VALUE IF NOT EXISTS 'submitted'")
     op.execute("ALTER TYPE assessmentstatus ADD VALUE IF NOT EXISTS 'failed'")
-    
+
     # Create jobtype enum
     op.execute("CREATE TYPE jobtype AS ENUM ('gpt', 'rag', 'fusion')")
-    
+
     # Create jobstatus enum
     op.execute("CREATE TYPE jobstatus AS ENUM ('queued', 'in_progress', 'completed', 'failed')")
-    
+
     # Create scores table
     op.create_table(
         "scores",
@@ -68,11 +68,9 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.UniqueConstraint(
-            "assessment_id", "question_snapshot_id", name="uq_score_per_question"
-        ),
+        sa.UniqueConstraint("assessment_id", "question_snapshot_id", name="uq_score_per_question"),
     )
-    
+
     # Create async_jobs table
     op.create_table(
         "async_jobs",
@@ -92,7 +90,10 @@ def upgrade() -> None:
         sa.Column(
             "status",
             sa.Enum(
-                "queued", "in_progress", "completed", "failed",
+                "queued",
+                "in_progress",
+                "completed",
+                "failed",
                 name="jobstatus",
                 create_type=False,
             ),
@@ -119,12 +120,12 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table("async_jobs")
     op.drop_table("scores")
-    
+
     # Drop enum types
     op.execute("DROP TYPE IF EXISTS jobstatus")
     op.execute("DROP TYPE IF EXISTS jobtype")
-    
+
     # Remove degraded column
     op.drop_column("assessments", "degraded")
-    
+
     # Note: Cannot easily remove enum values in PostgreSQL

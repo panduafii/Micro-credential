@@ -89,9 +89,7 @@ class SubmissionService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def submit_assessment(
-        self, *, assessment_id: str, user_id: str
-    ) -> SubmissionResult:
+    async def submit_assessment(self, *, assessment_id: str, user_id: str) -> SubmissionResult:
         """
         Submit an assessment for scoring.
 
@@ -404,14 +402,12 @@ class SubmissionService:
                 summary[qtype]["total"] += score.score
                 summary[qtype]["max"] += score.max_score
                 summary[qtype]["count"] += 1
-                summary[qtype]["breakdown"].append(
-                    {
-                        "question_id": score.question_snapshot_id,
-                        "score": score.score,
-                        "max_score": score.max_score,
-                        "explanation": score.explanation,
-                    }
-                )
+                summary[qtype]["breakdown"].append({
+                    "question_id": score.question_snapshot_id,
+                    "score": score.score,
+                    "max_score": score.max_score,
+                    "explanation": score.explanation,
+                })
 
         # Calculate percentages
         for qtype in ["theoretical", "profile"]:

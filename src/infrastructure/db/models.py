@@ -221,9 +221,7 @@ class Score(Base):
     score: Mapped[float] = mapped_column(nullable=False)
     max_score: Mapped[float] = mapped_column(nullable=False, default=100.0)
     explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
-    scoring_method: Mapped[str] = mapped_column(
-        String(32), nullable=False
-    )  # "rule" or "gpt"
+    scoring_method: Mapped[str] = mapped_column(String(32), nullable=False)  # "rule" or "gpt"
     rules_applied: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     model_info: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # GPT model details
     created_at: Mapped[datetime] = mapped_column(

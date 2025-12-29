@@ -36,11 +36,11 @@ logger = structlog.get_logger()
 
 # Rubric dimensions for essay scoring
 ESSAY_RUBRIC_DIMENSIONS = [
-    "relevance",       # How relevant is the answer to the question
-    "depth",           # Depth of analysis and understanding
-    "clarity",         # Clarity of expression
-    "completeness",    # Completeness of the answer
-    "technical",       # Technical accuracy (if applicable)
+    "relevance",  # How relevant is the answer to the question
+    "depth",  # Depth of analysis and understanding
+    "clarity",  # Clarity of expression
+    "completeness",  # Completeness of the answer
+    "technical",  # Technical accuracy (if applicable)
 ]
 
 # System prompt for deterministic essay scoring
@@ -402,16 +402,12 @@ Please score this essay according to the rubric dimensions."""
         if error_payload:
             values["error_payload"] = error_payload
 
-        await self.session.execute(
-            update(AsyncJob).where(AsyncJob.id == job_id).values(**values)
-        )
+        await self.session.execute(update(AsyncJob).where(AsyncJob.id == job_id).values(**values))
         await self.session.commit()
 
     async def _mark_assessment_degraded(self, assessment_id: str) -> None:
         """Mark assessment as degraded due to scoring failures."""
         await self.session.execute(
-            update(Assessment)
-            .where(Assessment.id == assessment_id)
-            .values(degraded=True)
+            update(Assessment).where(Assessment.id == assessment_id).values(degraded=True)
         )
         await self.session.commit()

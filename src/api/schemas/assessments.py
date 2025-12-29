@@ -56,9 +56,7 @@ class AssessmentSubmitResponse(BaseModel):
     assessment_id: str
     status: str
     submitted_at: str
-    degraded: bool = Field(
-        False, description="True if submission had missing or incomplete data"
-    )
+    degraded: bool = Field(False, description="True if submission had missing or incomplete data")
     scores: SubmissionScores
     jobs_queued: list[str] = Field(
         default_factory=list, description="Async job types queued (gpt, rag, fusion)"

@@ -225,9 +225,7 @@ class TestRuleScoring:
         questions = data["questions"]
 
         # Add response to theoretical question
-        theoretical_q = next(
-            (q for q in questions if q["question_type"] == "theoretical"), None
-        )
+        theoretical_q = next((q for q in questions if q["question_type"] == "theoretical"), None)
         if theoretical_q:
             session_factory = test_client_with_questions.session_factory
 

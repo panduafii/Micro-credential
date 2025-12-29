@@ -67,10 +67,12 @@ class MockGPTClient:
 
         if self.should_fail:
             from src.libs.gpt_client import GPTClientError
+
             raise GPTClientError("Mocked GPT failure")
 
         if self.fail_on_call is not None and self.call_count == self.fail_on_call:
             from src.libs.gpt_client import GPTClientError
+
             raise GPTClientError(f"Mocked failure on call {self.call_count}")
 
         if self.call_count <= len(self.responses):
@@ -634,7 +636,7 @@ class TestGPTResponseParsing:
             content=json.dumps({
                 "scores": {
                     "relevance": 150,  # Too high
-                    "depth": -10,      # Too low
+                    "depth": -10,  # Too low
                     "clarity": 90,
                     "completeness": 75,
                     "technical": 70,
@@ -663,5 +665,5 @@ class TestGPTResponseParsing:
 
         score = result.essay_scores[0]
         assert score.rubric_scores["relevance"] == 100  # Clamped to max
-        assert score.rubric_scores["depth"] == 0        # Clamped to min
-        assert score.score == 100                        # Clamped to max
+        assert score.rubric_scores["depth"] == 0  # Clamped to min
+        assert score.score == 100  # Clamped to max
