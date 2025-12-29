@@ -217,6 +217,66 @@ job = AsyncJob(status=JobStatus.PENDING)
 job = AsyncJob(status=JobStatus.QUEUED)
 ```
 
+## Alembic Migration Rules
+
+### PostgreSQL Enum Type Naming
+- **ALWAYS check existing enum names in database first**
+- Enum names use `snake_case` (e.g., `assessment_status` NOT `assessmentstatus`)
+
+```python
+# BAD - wrong enum name!
+op.execute("ALTER TYPE assessmentstatus ADD VALUE ...")
+
+# GOOD - check actual name first!
+op.execute("ALTER TYPE assessment_status ADD VALUE IF NOT EXISTS 'submitted'")
+```
+
+### Avoid SQLAlchemy Enum Conflicts
+- **NEVER** manually create enums with `CREATE TYPE` AND use `sa.Enum()` together
+- SQLAlchemy ignores `create_type=False` in some cases
+- **SOLUTION:** Use `String(20)` columns instead of PostgreSQL Enum for new tables
+
+```python
+# BAD - causes "type already exists" error!
+op.execute("CREATE TYPE job_type AS ENUM ('gpt', 'rag', 'fusion')")
+op.create_table(
+    "async_jobs",
+    sa.Column("job_type", sa.Enum("gpt", "rag", "fusion", name="job_type", 
+              create_type=False)),  # SQLAlchemy may ignore create_type=False!
+)
+
+# GOOD - use String columns to avoid enum conflicts
+op.create_table(
+    "async_jobs",
+    sa.Column("job_type", sa.String(20), nullable=False),  # 'gpt', 'rag', 'fusion'
+    sa.Column("status", sa.String(20), nullable=False, server_default="queued"),
+)
+```
+
+### Migration Testing
+- **ALWAYS** reset database and test migrations from scratch before commit:
+
+```bash
+# Reset database
+docker compose down -v && docker compose up -d && sleep 5
+
+# Run migrations (use localhost for local dev)
+export DATABASE_URL="postgresql+asyncpg://microcred:postgres-password@localhost:5432/microcred"
+poetry run alembic upgrade head
+```
+
+### Local vs Docker Database URL
+- Docker uses hostname `db` (from docker-compose service name)
+- Local development uses `localhost`
+
+```bash
+# For Docker (in .env)
+DATABASE_URL=postgresql+asyncpg://microcred:postgres-password@db:5432/microcred
+
+# For local development
+export DATABASE_URL="postgresql+asyncpg://microcred:postgres-password@localhost:5432/microcred"
+```
+
 ## Common Fixes
 
 ### Fix Import Errors

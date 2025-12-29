@@ -133,6 +133,32 @@ Verify enum values exist before using:
 job = AsyncJob(status=JobStatus.QUEUED)  # GOOD
 ```
 
+### 13. Alembic Migration - Enum Names
+- PostgreSQL enum names use `snake_case` (e.g., `assessment_status`)
+- Check existing enum names before ALTER TYPE
+
+```python
+# WRONG: op.execute("ALTER TYPE assessmentstatus ...")
+# CORRECT: op.execute("ALTER TYPE assessment_status ...")
+```
+
+### 14. Alembic Migration - Avoid Enum Conflicts
+- **Use String columns instead of PostgreSQL Enum for new tables**
+- SQLAlchemy may ignore `create_type=False` causing duplicate errors
+
+```python
+# Use String(20) instead of sa.Enum() to avoid conflicts
+sa.Column("job_type", sa.String(20), nullable=False)
+sa.Column("status", sa.String(20), server_default="queued")
+```
+
+### 15. Local vs Docker Database URL
+```bash
+# Docker (in .env): @db:5432
+# Local dev: @localhost:5432
+export DATABASE_URL="postgresql+asyncpg://microcred:postgres-password@localhost:5432/microcred"
+```
+
 ## Agent Workflow
 
 1. **Before Writing Code:**
