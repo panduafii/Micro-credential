@@ -146,8 +146,5 @@ git push
 ### Epic 3: Recommendations, Transparency, and Feedback Loop ✅
 - [x] Story 3.1: RAG Retrieval Service
 - [x] Story 3.2: Fusion Summary and Result Endpoint
-- [x] Story 3.3: Feedback Collection### Epic 3: Recommendations, Transparency, and Feedback Loop 🔜
-- [ ] Story 3.1: RAG-Powered Credential Recommendations
-- [ ] Story 3.2: Transparency Dashboard
-- [ ] Story 3.3: Feedback Collection and Analytics
+- [x] Story 3.3: Feedback Collection
 
