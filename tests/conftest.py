@@ -17,7 +17,12 @@ from src.api.main import app
 from src.core.auth import create_access_token
 from src.domain.reference_data import QUESTION_TEMPLATES, ROLE_DEFINITIONS
 from src.infrastructure.db.base import Base
-from src.infrastructure.db.models import QuestionTemplate, RoleCatalog
+from src.infrastructure.db.models import (
+    AsyncJob,
+    QuestionTemplate,
+    RoleCatalog,
+    Score,
+)
 
 
 @pytest.fixture(scope="session")

@@ -30,11 +30,26 @@ class QuestionType(str, enum.Enum):
 class AssessmentStatus(str, enum.Enum):
     DRAFT = "draft"
     IN_PROGRESS = "in_progress"
+    SUBMITTED = "submitted"  # Awaiting async scoring
     COMPLETED = "completed"
+    FAILED = "failed"
 
     @classmethod
     def active_statuses(cls) -> tuple[AssessmentStatus, ...]:
         return (cls.DRAFT, cls.IN_PROGRESS)
+
+
+class JobType(str, enum.Enum):
+    GPT = "gpt"
+    RAG = "rag"
+    FUSION = "fusion"
+
+
+class JobStatus(str, enum.Enum):
+    QUEUED = "queued"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class RoleCatalog(Base):
@@ -99,6 +114,7 @@ class Assessment(Base):
         nullable=False,
         index=True,
     )
+    degraded: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -118,6 +134,12 @@ class Assessment(Base):
         order_by="AssessmentQuestionSnapshot.sequence",
     )
     responses: Mapped[list[AssessmentResponse]] = relationship(
+        back_populates="assessment", cascade="all,delete-orphan"
+    )
+    scores: Mapped[list[Score]] = relationship(
+        back_populates="assessment", cascade="all,delete-orphan"
+    )
+    jobs: Mapped[list[AsyncJob]] = relationship(
         back_populates="assessment", cascade="all,delete-orphan"
     )
 
@@ -175,3 +197,67 @@ class AssessmentResponse(Base):
 
     assessment: Mapped[Assessment] = relationship(back_populates="responses")
     question_snapshot: Mapped[AssessmentQuestionSnapshot] = relationship(back_populates="responses")
+
+
+class Score(Base):
+    """Stores per-question scores from rule-based and GPT scoring."""
+
+    __tablename__ = "scores"
+    __table_args__ = (
+        UniqueConstraint("assessment_id", "question_snapshot_id", name="uq_score_per_question"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    assessment_id: Mapped[str] = mapped_column(
+        ForeignKey("assessments.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    question_snapshot_id: Mapped[str] = mapped_column(
+        ForeignKey("assessment_question_snapshots.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    question_type: Mapped[QuestionType] = mapped_column(Enum(QuestionType), nullable=False)
+    score: Mapped[float] = mapped_column(nullable=False)
+    max_score: Mapped[float] = mapped_column(nullable=False, default=100.0)
+    explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    scoring_method: Mapped[str] = mapped_column(
+        String(32), nullable=False
+    )  # "rule" or "gpt"
+    rules_applied: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    model_info: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # GPT model details
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    assessment: Mapped[Assessment] = relationship(back_populates="scores")
+    question_snapshot: Mapped[AssessmentQuestionSnapshot] = relationship()
+
+
+class AsyncJob(Base):
+    """Tracks async processing jobs (GPT scoring, RAG, fusion)."""
+
+    __tablename__ = "async_jobs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    assessment_id: Mapped[str] = mapped_column(
+        ForeignKey("assessments.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    job_type: Mapped[JobType] = mapped_column(Enum(JobType), nullable=False)
+    status: Mapped[JobStatus] = mapped_column(
+        Enum(JobStatus), default=JobStatus.QUEUED, nullable=False, index=True
+    )
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
+    payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    error_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    queued_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    assessment: Mapped[Assessment] = relationship(back_populates="jobs")
