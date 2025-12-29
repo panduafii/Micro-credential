@@ -215,6 +215,31 @@ job = AsyncJob(status=JobStatus.PENDING)
 
 # GOOD
 job = AsyncJob(status=JobStatus.QUEUED)
+
+# BAD - GPT_SCORING doesn't exist!
+AsyncJob.job_type == JobType.GPT_SCORING.value
+
+# Check the actual enum:
+# class JobType(str, Enum):
+#     GPT = "gpt"  # Use this!
+
+# GOOD
+AsyncJob.job_type == JobType.GPT.value
+```
+
+## Model Column Names
+- Always check actual column names in SQLAlchemy models before using:
+
+```python
+# BAD - Assessment uses owner_id not student_id!
+if assessment.student_id != user_id:  # AttributeError!
+
+# Check the actual model:
+# class Assessment(Base):
+#     owner_id: Mapped[str]  # NOT student_id!
+
+# GOOD
+if assessment.owner_id != user_id:
 ```
 
 ## Alembic Migration Rules
