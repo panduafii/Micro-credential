@@ -243,9 +243,9 @@ class AsyncJob(Base):
         nullable=False,
         index=True,
     )
-    job_type: Mapped[JobType] = mapped_column(Enum(JobType), nullable=False)
-    status: Mapped[JobStatus] = mapped_column(
-        Enum(JobStatus), default=JobStatus.QUEUED, nullable=False, index=True
+    job_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), default=JobStatus.QUEUED.value, nullable=False, index=True
     )
     attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_attempts: Mapped[int] = mapped_column(Integer, default=3, nullable=False)

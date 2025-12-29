@@ -25,16 +25,10 @@ def upgrade() -> None:
 
     # Add new assessment statuses (submitted, failed)
     # For PostgreSQL, we need to alter the enum type
-    op.execute("ALTER TYPE assessmentstatus ADD VALUE IF NOT EXISTS 'submitted'")
-    op.execute("ALTER TYPE assessmentstatus ADD VALUE IF NOT EXISTS 'failed'")
+    op.execute("ALTER TYPE assessment_status ADD VALUE IF NOT EXISTS 'submitted'")
+    op.execute("ALTER TYPE assessment_status ADD VALUE IF NOT EXISTS 'failed'")
 
-    # Create jobtype enum
-    op.execute("CREATE TYPE jobtype AS ENUM ('gpt', 'rag', 'fusion')")
-
-    # Create jobstatus enum
-    op.execute("CREATE TYPE jobstatus AS ENUM ('queued', 'in_progress', 'completed', 'failed')")
-
-    # Create scores table
+    # Create scores table - question_type enum already exists from initial migration
     op.create_table(
         "scores",
         sa.Column("id", sa.String(36), primary_key=True),
@@ -53,7 +47,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "question_type",
-            sa.Enum("theoretical", "essay", "profile", name="questiontype", create_type=False),
+            sa.Enum("theoretical", "essay", "profile", name="question_type", create_type=False),
             nullable=False,
         ),
         sa.Column("score", sa.Float(), nullable=False),
@@ -71,7 +65,7 @@ def upgrade() -> None:
         sa.UniqueConstraint("assessment_id", "question_snapshot_id", name="uq_score_per_question"),
     )
 
-    # Create async_jobs table
+    # Create async_jobs table - use String columns instead of Enums to avoid issues
     op.create_table(
         "async_jobs",
         sa.Column("id", sa.String(36), primary_key=True),
@@ -82,25 +76,14 @@ def upgrade() -> None:
             nullable=False,
             index=True,
         ),
-        sa.Column(
-            "job_type",
-            sa.Enum("gpt", "rag", "fusion", name="jobtype", create_type=False),
-            nullable=False,
-        ),
+        sa.Column("job_type", sa.String(20), nullable=False),  # 'gpt', 'rag', 'fusion'
         sa.Column(
             "status",
-            sa.Enum(
-                "queued",
-                "in_progress",
-                "completed",
-                "failed",
-                name="jobstatus",
-                create_type=False,
-            ),
+            sa.String(20),
             nullable=False,
             index=True,
             server_default="queued",
-        ),
+        ),  # 'queued', 'in_progress', 'completed', 'failed'
         sa.Column("attempts", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("max_attempts", sa.Integer(), nullable=False, server_default="3"),
         sa.Column("payload", sa.JSON(), nullable=True),
@@ -120,10 +103,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table("async_jobs")
     op.drop_table("scores")
-
-    # Drop enum types
-    op.execute("DROP TYPE IF EXISTS jobstatus")
-    op.execute("DROP TYPE IF EXISTS jobtype")
 
     # Remove degraded column
     op.drop_column("assessments", "degraded")
