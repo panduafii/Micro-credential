@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import AnyHttpUrl, BaseModel, Field
 from src.api.schemas.tracks import TrackItem
 
 
@@ -61,3 +61,62 @@ class AssessmentSubmitResponse(BaseModel):
     jobs_queued: list[str] = Field(
         default_factory=list, description="Async job types queued (gpt, rag, fusion)"
     )
+
+
+# Story 2.3: Status polling schemas
+class JobProgress(BaseModel):
+    """Progress of a single async job."""
+
+    job_type: str = Field(..., description="Job type: gpt, rag, or fusion")
+    status: str = Field(..., description="Job status: queued, in_progress, completed, failed")
+    attempts: int = Field(0, description="Number of attempts made")
+    max_attempts: int = Field(3, description="Maximum attempts allowed")
+    started_at: str | None = Field(None, description="ISO timestamp when job started")
+    completed_at: str | None = Field(None, description="ISO timestamp when job completed")
+    error: str | None = Field(None, description="Error message if failed")
+
+
+class StageProgress(BaseModel):
+    """Progress of a processing stage."""
+
+    name: str = Field(..., description="Stage name: rule_score, gpt, rag, fusion")
+    status: str = Field(..., description="Stage status: pending, in_progress, completed, failed")
+    percentage: float = Field(0.0, description="Completion percentage (0-100)")
+
+
+class AssessmentStatusResponse(BaseModel):
+    """Response for GET /assessments/{id}/status endpoint."""
+
+    assessment_id: str
+    status: str = Field(
+        ..., description="Assessment status: in_progress, submitted, completed, failed"
+    )
+    submitted_at: str | None = Field(None, description="ISO timestamp when submitted")
+    completed_at: str | None = Field(None, description="ISO timestamp when all jobs completed")
+    degraded: bool = Field(False, description="True if submission had issues")
+    overall_progress: float = Field(
+        0.0, description="Overall completion percentage across all stages (0-100)"
+    )
+    stages: list[StageProgress] = Field(
+        default_factory=list, description="Progress of each processing stage"
+    )
+    jobs: list[JobProgress] = Field(default_factory=list, description="Status of async jobs")
+    webhook_url: str | None = Field(None, description="Registered webhook URL for callbacks")
+
+
+# Story 2.3: Webhook registration
+class WebhookRegisterRequest(BaseModel):
+    """Request to register a webhook for assessment completion callbacks."""
+
+    webhook_url: AnyHttpUrl = Field(
+        ...,
+        description="URL to call when assessment processing completes",
+    )
+
+
+class WebhookRegisterResponse(BaseModel):
+    """Response after registering a webhook."""
+
+    assessment_id: str
+    webhook_url: str
+    registered_at: str

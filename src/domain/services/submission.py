@@ -59,6 +59,10 @@ class IncompleteResponsesError(Exception):
         self.missing_count = missing_count
 
 
+class DuplicateSubmissionError(Exception):
+    """Raised when a duplicate submission is detected via idempotency key."""
+
+
 @dataclass(slots=True)
 class ScoreBreakdown:
     question_snapshot_id: str
@@ -89,7 +93,13 @@ class SubmissionService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def submit_assessment(self, *, assessment_id: str, user_id: str) -> SubmissionResult:
+    async def submit_assessment(
+        self,
+        *,
+        assessment_id: str,
+        user_id: str,
+        idempotency_key: str | None = None,
+    ) -> SubmissionResult:
         """
         Submit an assessment for scoring.
 
@@ -97,7 +107,15 @@ class SubmissionService:
         AC2: Scores written to Postgres scores table with per-question breakdown.
         AC3: Job records created (gpt, rag, fusion) with status queued.
         AC4: Degraded flag set if required data is missing.
+        AC (Story 2.3): Idempotency key prevents duplicate submissions.
         """
+        # Story 2.3: Check idempotency key
+        if idempotency_key:
+            existing = await self._check_idempotency_key(idempotency_key)
+            if existing:
+                raise DuplicateSubmissionError(
+                    f"Duplicate submission detected for idempotency key: {idempotency_key}"
+                )
         # Load assessment with all relationships
         assessment = await self._get_assessment_with_responses(assessment_id)
 
@@ -120,14 +138,17 @@ class SubmissionService:
 
         # Update assessment status
         now = datetime.now(UTC)
+        update_values: dict = {
+            "status": AssessmentStatus.SUBMITTED,
+            "degraded": degraded,
+            "completed_at": now,
+        }
+        # Story 2.3: Store idempotency key if provided
+        if idempotency_key:
+            update_values["idempotency_key"] = idempotency_key
+
         await self.session.execute(
-            update(Assessment)
-            .where(Assessment.id == assessment_id)
-            .values(
-                status=AssessmentStatus.SUBMITTED,
-                degraded=degraded,
-                completed_at=now,
-            )
+            update(Assessment).where(Assessment.id == assessment_id).values(**update_values)
         )
 
         await self.session.commit()
@@ -155,6 +176,12 @@ class SubmissionService:
             scores=score_summary,
             jobs_queued=jobs_queued,
         )
+
+    async def _check_idempotency_key(self, idempotency_key: str) -> Assessment | None:
+        """Check if an assessment with this idempotency key already exists."""
+        stmt = select(Assessment).where(Assessment.idempotency_key == idempotency_key)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def _get_assessment_with_responses(self, assessment_id: str) -> Assessment:
         """Load assessment with question snapshots and responses."""
