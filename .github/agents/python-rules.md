@@ -24,20 +24,29 @@ from src.api.main import app
 
 Before any commit:
 ```bash
-# 1. Lint check
-poetry run ruff check .
+# 1. Lint check AND auto-fix
+poetry run ruff check --fix .
 
-# 2. Format check  
-poetry run ruff format --check .
+# 2. Format (MUST RUN - not just check!)
+poetry run ruff format .
 
-# 3. Run tests
+# 3. Verify both pass
+poetry run ruff check . && poetry run ruff format --check .
+
+# 4. Run tests
 poetry run pytest tests/
 
-# 4. If all pass, commit
+# 5. If all pass, commit
 git add -A
 git commit -m "your message"
 git push
 ```
+
+**IMPORTANT:** `ruff check` (lint) dan `ruff format` (formatting) adalah DUA hal berbeda!
+- `ruff check --fix` = fix lint errors (imports, unused vars, etc)
+- `ruff format` = fix code style (spacing, quotes, line breaks)
+
+**BOTH must pass for CI to succeed!**
 
 ## SQLAlchemy Reserved Keywords
 

@@ -29,10 +29,17 @@ metadata_: Mapped[dict] = mapped_column("metadata", JSON)
 
 ### 3. Code Quality Gates - Run Before Commit
 ```bash
-poetry run ruff check .           # Linting
-poetry run ruff format --check .  # Format check
-poetry run pytest tests/          # Tests
+# MUST run BOTH - they are different!
+poetry run ruff check --fix .     # Lint (imports, unused vars)
+poetry run ruff format .          # Format (spacing, quotes)
+
+# Verify
+poetry run ruff check . && poetry run ruff format --check .
+
+# Tests
+poetry run pytest tests/
 ```
+**WARNING:** `ruff check` ≠ `ruff format`! Both must pass for CI.
 
 ### 4. Line Length Limit
 - Maximum: **100 characters**
