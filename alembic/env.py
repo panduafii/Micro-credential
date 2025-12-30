@@ -19,10 +19,18 @@ target_metadata = Base.metadata
 
 
 def get_database_url() -> str:
+    """Get database URL, converting to async format if needed."""
     try:
-        return get_settings().database_url
+        settings = get_settings()
+        return settings.async_database_url
     except Exception:
-        return config.get_main_option("sqlalchemy.url")
+        url = config.get_main_option("sqlalchemy.url") or ""
+        # Convert to async format if needed
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        return url
 
 
 def run_migrations_offline() -> None:

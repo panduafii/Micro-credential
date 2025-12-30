@@ -234,7 +234,7 @@ async def submit_realistic_assessment(role_slug: str = "backend-engineer"):
     from src.domain.services.assessments import AssessmentService
 
     settings = get_settings()
-    engine = create_async_engine(settings.database_url)
+    engine = create_async_engine(settings.async_database_url)
     async_session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session_maker() as session:

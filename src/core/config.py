@@ -27,6 +27,17 @@ class Settings(BaseSettings):
         validation_alias="REDIS_URL",
     )
 
+    @property
+    def async_database_url(self) -> str:
+        """Convert database URL to async format (postgresql+asyncpg://)."""
+        url = self.database_url
+        # Render provides postgresql:// but we need postgresql+asyncpg://
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        return url
+
     # OpenAI/GPT Configuration
     openai_api_key: str = Field(
         default="",
