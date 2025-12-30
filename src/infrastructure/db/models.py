@@ -30,9 +30,10 @@ class QuestionType(str, enum.Enum):
 
 class AssessmentStatus(str, enum.Enum):
     """Assessment workflow status enum.
-    
+
     Note: Must use name='assessment_status' in Enum() to match database enum type.
     """
+
     DRAFT = "draft"
     IN_PROGRESS = "in_progress"
     SUBMITTED = "submitted"  # Awaiting async scoring

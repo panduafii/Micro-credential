@@ -5,7 +5,7 @@ Natural flow test: Complete assessment dengan jawaban realistis.
 
 Test end-to-end flow dengan:
 - Jawaban theoretical yang benar
-- Jawaban profile yang natural  
+- Jawaban profile yang natural
 - Jawaban essay programming test yang lengkap
 """
 
@@ -241,12 +241,12 @@ async def submit_realistic_assessment(role_slug: str = "backend-engineer"):
         # 1. Create assessment properly with questions
         assessment_service = AssessmentService(session)
         user = User(user_id="test-user-natural", roles=["student"])
-        
+
         result = await assessment_service.start_or_resume(
             user=user,
             role_slug=role_slug,
         )
-        
+
         assessment_id = result["assessment_id"]
         questions = result["questions"]
 
@@ -271,7 +271,7 @@ async def submit_realistic_assessment(role_slug: str = "backend-engineer"):
                 # Show preview
                 answer_text = NATURAL_ANSWERS[seq]["response_data"].get("answer_text", "")
                 preview = answer_text[:80] + "..." if len(answer_text) > 80 else answer_text
-                print(f"✅ Q{seq} ({q['question_type']}): {preview}")
+                print(f"✅ Q{seq} ({q["question_type"]}): {preview}")
 
         await session.commit()
         print(f"\n✅ Answered {answered}/{len(questions)} questions")
@@ -289,14 +289,14 @@ async def submit_realistic_assessment(role_slug: str = "backend-engineer"):
         theoretical = scores.get("theoretical", {})
         profile = scores.get("profile", {})
         essay = scores.get("essay", {})
-        
-        print(f"📊 Theoretical Score: {theoretical.get('total', 0)}/{theoretical.get('max', 0)}")
-        print(f"👤 Profile Score: {profile.get('total', 0)}/{profile.get('max', 0)}")
-        print(f"✍️  Essay Score: {essay.get('total', 0)}/{essay.get('max', 0)}")
-        
-        total = theoretical.get('total', 0) + profile.get('total', 0) + essay.get('total', 0)
+
+        print(f"📊 Theoretical Score: {theoretical.get("total", 0)}/{theoretical.get("max", 0)}")
+        print(f"👤 Profile Score: {profile.get("total", 0)}/{profile.get("max", 0)}")
+        print(f"✍️  Essay Score: {essay.get("total", 0)}/{essay.get("max", 0)}")
+
+        total = theoretical.get("total", 0) + profile.get("total", 0) + essay.get("total", 0)
         print(f"📈 Total: {total}")
-        print(f"🔄 Jobs Queued: {', '.join(submit_result.jobs_queued)}")
+        print(f"🔄 Jobs Queued: {", ".join(submit_result.jobs_queued)}")
         print(f"⚠️  Degraded: {submit_result.degraded}")
         print("=" * 60)
 
