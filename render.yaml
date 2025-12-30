@@ -1,13 +1,9 @@
-# Render Blueprint Configuration
-# This file defines all services for deployment on Render
-
 services:
-  # FastAPI Application
   - type: web
     name: microcred-api
     runtime: python
-    region: singapore # or oregon, frankfurt
-    plan: starter # free tier
+    region: singapore
+    plan: starter
     buildCommand: ./scripts/render-build.sh
     startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
     envVars:
@@ -25,7 +21,7 @@ services:
           name: microcred-redis
           property: connectionString
       - key: OPENAI_API_KEY
-        sync: false # Set this manually in Render dashboard
+        sync: false
       - key: JWT_SECRET_KEY
         generateValue: true
       - key: JWT_ALGORITHM
@@ -36,19 +32,17 @@ services:
         value: info
     healthCheckPath: /health
     autoDeploy: true
-    
-  # PostgreSQL Database
-databases:
-  - name: microcred-db
-    databaseName: microcred
-    region: singapore # same as web service
-    plan: starter # free tier (90 days, then $7/month)
-    postgresMajorVersion: 16
 
-# Redis Instance
   - type: redis
     name: microcred-redis
     region: singapore
-    plan: starter # free tier
+    plan: starter
     maxmemoryPolicy: allkeys-lru
     ipAllowList: []
+
+databases:
+  - name: microcred-db
+    databaseName: microcred
+    region: singapore
+    plan: starter
+    postgresMajorVersion: 16
