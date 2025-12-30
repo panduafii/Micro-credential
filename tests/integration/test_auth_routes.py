@@ -21,9 +21,7 @@ class TestRegisterEndpoint:
     """Tests for POST /auth/register endpoint."""
 
     @pytest.mark.asyncio
-    async def test_register_success(
-        self, async_client: AsyncClient, test_user: dict
-    ) -> None:
+    async def test_register_success(self, async_client: AsyncClient, test_user: dict) -> None:
         """Successful registration should return 201 with user and tokens."""
         response = await async_client.post("/auth/register", json=test_user)
 
@@ -99,9 +97,7 @@ class TestLoginEndpoint:
     """Tests for POST /auth/login endpoint."""
 
     @pytest.mark.asyncio
-    async def test_login_success(
-        self, async_client: AsyncClient, test_user: dict
-    ) -> None:
+    async def test_login_success(self, async_client: AsyncClient, test_user: dict) -> None:
         """Successful login should return tokens."""
         # Register first
         await async_client.post("/auth/register", json=test_user)
@@ -124,9 +120,7 @@ class TestLoginEndpoint:
         assert "refresh_token" in data["tokens"]
 
     @pytest.mark.asyncio
-    async def test_login_wrong_password(
-        self, async_client: AsyncClient, test_user: dict
-    ) -> None:
+    async def test_login_wrong_password(self, async_client: AsyncClient, test_user: dict) -> None:
         """Wrong password should return 401."""
         # Register first
         await async_client.post("/auth/register", json=test_user)
@@ -161,9 +155,7 @@ class TestMeEndpoint:
     """Tests for GET /auth/me endpoint."""
 
     @pytest.mark.asyncio
-    async def test_me_success(
-        self, async_client: AsyncClient, test_user: dict
-    ) -> None:
+    async def test_me_success(self, async_client: AsyncClient, test_user: dict) -> None:
         """Authenticated user should get their profile."""
         # Register and get token
         register_response = await async_client.post("/auth/register", json=test_user)

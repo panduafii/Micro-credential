@@ -149,9 +149,7 @@ class AuthService:
 
         # Update last login
         await self.session.execute(
-            update(UserModel)
-            .where(UserModel.id == user.id)
-            .values(last_login_at=datetime.now(UTC))
+            update(UserModel).where(UserModel.id == user.id).values(last_login_at=datetime.now(UTC))
         )
         await self.session.commit()
         await self.session.refresh(user)
@@ -194,9 +192,7 @@ class AuthService:
         # Update password
         new_hashed = hash_password(new_password)
         await self.session.execute(
-            update(UserModel)
-            .where(UserModel.id == user_id)
-            .values(hashed_password=new_hashed)
+            update(UserModel).where(UserModel.id == user_id).values(hashed_password=new_hashed)
         )
         await self.session.commit()
 
