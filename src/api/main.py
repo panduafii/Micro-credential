@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import structlog
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from src.api.routes import register_routes
 from src.core.config import get_settings
 from src.core.logging import setup_logging
@@ -31,6 +32,20 @@ def create_app() -> FastAPI:
         yield
 
     app = FastAPI(title=settings.app_name, version=settings.version, lifespan=lifespan)
+
+    # CORS - Allow frontend to access API
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:3000",  # Local development
+            "http://localhost:5173",  # Vite default
+            "https://*.vercel.app",  # Vercel deployments
+            "https://*.netlify.app",  # Netlify deployments
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     register_routes(app)
 
