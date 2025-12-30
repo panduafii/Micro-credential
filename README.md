@@ -1,5 +1,14 @@
 # MicroCred GenAI Monorepo
 
+**AI-Powered Skills Assessment Platform** with GPT scoring, RAG recommendations, and personalized learning paths.
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
+
+## Quick Links
+- 📚 **[Deployment Guide](RENDER-DEPLOYMENT.md)** - Deploy to Render in 5 minutes
+- 📖 **[API Documentation](http://localhost:8000/docs)** - Swagger UI (after running locally)
+- 🎨 **[Frontend Guide](docs/FE-GUIDE.md)** - Complete frontend development guide
+
 ## Prerequisites
 - Python 3.12.2
 - Poetry 1.8.x
@@ -50,6 +59,38 @@
   ```bash
   poetry run python scripts/export_openapi.py
   ```
+
+## Deployment
+
+### 🚀 Deploy to Render (Recommended)
+The fastest way to deploy this application to production:
+
+```bash
+# 1. Commit deployment config
+git add render.yaml scripts/render-build.sh
+git commit -m "add Render deployment config"
+git push origin main
+
+# 2. Deploy using Blueprint
+# Visit: https://render.com
+# Click: New + → Blueprint → Select your repo
+# Render will auto-detect render.yaml and deploy everything!
+```
+
+**Complete deployment guide**: See [RENDER-DEPLOYMENT.md](RENDER-DEPLOYMENT.md)
+
+**What gets deployed:**
+- ✅ FastAPI application (free tier)
+- ✅ PostgreSQL database (90 days free)
+- ✅ Redis cache (free tier)
+- ✅ Auto-migrations on deploy
+- ✅ SSL certificate included
+- ✅ Zero-downtime deployments
+
+### Alternative Deployment Options
+- **Docker Compose**: `docker compose up --build`
+- **AWS/GCP/Azure**: See deployment guide
+- **VPS (DigitalOcean/Linode)**: Manual setup instructions in guide
 
 ## Project Structure
 Key directories follow the architecture guide:
