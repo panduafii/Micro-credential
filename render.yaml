@@ -1,9 +1,13 @@
+# Render Blueprint Configuration
+# This file defines all services for deployment on Render
+
 services:
+  # FastAPI Application
   - type: web
     name: microcred-api
     runtime: python
     region: singapore
-    plan: starter
+    plan: free
     buildCommand: ./scripts/render-build.sh
     startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
     envVars:
@@ -33,16 +37,18 @@ services:
     healthCheckPath: /health
     autoDeploy: true
 
+  # Redis Instance
   - type: redis
     name: microcred-redis
     region: singapore
-    plan: starter
+    plan: free
     maxmemoryPolicy: allkeys-lru
     ipAllowList: []
 
+# PostgreSQL Database
 databases:
   - name: microcred-db
     databaseName: microcred
     region: singapore
-    plan: starter
+    plan: free
     postgresMajorVersion: 16
