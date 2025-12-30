@@ -32,7 +32,10 @@ QUESTION_TEMPLATES = [
         "backend-engineer",
         1,
         "theoretical",
-        "Jelaskan perbedaan antara REST API dan GraphQL. Kapan sebaiknya menggunakan masing-masing?",
+        (
+            "Jelaskan perbedaan antara REST API dan GraphQL. "
+            "Kapan sebaiknya menggunakan masing-masing?"
+        ),
         "api-design",
     ),
     make_question(

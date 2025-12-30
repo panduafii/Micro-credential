@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# ruff: noqa: E402, I001
 """
 Natural flow test: Complete assessment dengan jawaban realistis.
 
@@ -8,7 +9,6 @@ Test end-to-end flow dengan:
 - Jawaban essay programming test yang lengkap
 """
 
-import asyncio
 import sys
 from pathlib import Path
 
@@ -16,17 +16,13 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-import structlog
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker, selectinload
+import asyncio
 
-from src.infrastructure.db.models import (
-    Assessment,
-    AssessmentQuestionSnapshot,
-    AssessmentResponse,
-    QuestionType,
-)
+import structlog
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+
+from src.infrastructure.db.models import AssessmentResponse
 from src.core.config import get_settings
 from src.domain.services.submission import SubmissionService
 from scripts.process_jobs import process_assessment_jobs
@@ -198,22 +194,35 @@ CREATE TABLE order_items (
     # Profile questions (50 points each)
     7: {
         "response_data": {
-            "answer_text": "3 tahun pengalaman, termasuk 1 tahun sebagai Senior Backend Engineer di startup fintech."
+            "answer_text": (
+                "3 tahun pengalaman, termasuk 1 tahun "
+                "sebagai Senior Backend Engineer di startup fintech."
+            )
         }
     },
     8: {
         "response_data": {
-            "answer_text": "Python dengan FastAPI/Django, Node.js dengan Express, PostgreSQL dan MongoDB untuk database."
+            "answer_text": (
+                "Python dengan FastAPI/Django, Node.js dengan Express, "
+                "PostgreSQL dan MongoDB untuk database."
+            )
         }
     },
     9: {
         "response_data": {
-            "answer_text": "Ya, pernah deploy ke AWS EC2 dan Heroku untuk startup, juga Docker container ke Google Cloud Run untuk project freelance."
+            "answer_text": (
+                "Ya, pernah deploy ke AWS EC2 dan Heroku untuk startup, "
+                "juga Docker container ke Google Cloud Run untuk project freelance."
+            )
         }
     },
     10: {
         "response_data": {
-            "answer_text": "Handling 1000+ concurrent requests menyebabkan database timeout. Solusi: implement connection pooling, add Redis cache untuk frequent queries, dan optimize slow queries dengan indexing."
+            "answer_text": (
+                "Handling 1000+ concurrent requests menyebabkan database timeout. "
+                "Solusi: implement connection pooling, add Redis cache untuk "
+                "frequent queries, dan optimize slow queries dengan indexing."
+            )
         }
     },
 }
@@ -221,15 +230,14 @@ CREATE TABLE order_items (
 
 async def submit_realistic_assessment(role_slug: str = "backend-engineer"):
     """Submit assessment dengan jawaban natural dan lengkap."""
+    from src.domain import User
+    from src.domain.services.assessments import AssessmentService
+
     settings = get_settings()
     engine = create_async_engine(settings.database_url)
     async_session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with async_session_maker() as session:
-        # Import services
-        from src.domain.services.assessments import AssessmentService
-        from src.domain import User
-        
         # 1. Create assessment properly with questions
         assessment_service = AssessmentService(session)
         user = User(user_id="test-user-natural", roles=["student"])
@@ -276,7 +284,7 @@ async def submit_realistic_assessment(role_slug: str = "backend-engineer"):
             user_id="test-user-natural",
         )
 
-        print(f"\n🚀 Assessment submitted!")
+        print("\n🚀 Assessment submitted!")
         scores = submit_result.scores
         theoretical = scores.get("theoretical", {})
         profile = scores.get("profile", {})
@@ -326,7 +334,7 @@ async def main():
     print(f"Assessment ID: {assessment_id}")
     print("\nℹ️  Get full result:")
     print(f"   curl http://localhost:8000/assessments/{assessment_id}/result \\")
-    print(f"        -H 'Authorization: Bearer YOUR_TOKEN'")
+    print("        -H 'Authorization: Bearer YOUR_TOKEN'")
     print("\nℹ️  Or check in API:")
     print(f"   GET /assessments/{assessment_id}/result")
     print("=" * 60)

@@ -31,7 +31,8 @@ async def process_assessment_jobs(assessment_id: str) -> None:
     session_factory = get_session_factory()
 
     print(f"🔄 Processing jobs for assessment: {assessment_id}")
-    print(f"   Database: {settings.database_url.split('@')[1] if '@' in settings.database_url else 'local'}")
+    db_host = settings.database_url.split("@")[1] if "@" in settings.database_url else "local"
+    print(f"   Database: {db_host}")
     print()
 
     async with session_factory() as session:
@@ -85,13 +86,13 @@ async def process_assessment_jobs(assessment_id: str) -> None:
                     result = await service.process_rag_job(assessment_id)
                     print(f"   ✓ Found {len(result.matches)} recommendations")
                     if result.degraded:
-                        print(f"   ⚠️  Degraded mode (fallback courses)")
+                        print("   ⚠️  Degraded mode (fallback courses)")
 
                 elif job_type == JobType.FUSION.value:
                     # Fusion Summary
                     service = FusionService(session=session)
                     result = await service.process_fusion_job(assessment_id)
-                    print(f"   ✓ Generated summary")
+                    print("   ✓ Generated summary")
                     print(f"   ✓ Overall score: {result.overall_score:.1f}%")
                     print(f"   ✓ Processing time: {result.processing_duration_ms}ms")
 
