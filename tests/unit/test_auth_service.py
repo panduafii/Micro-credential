@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 import pytest
-from passlib.context import CryptContext
-
+from pydantic import ValidationError
+from src.api.schemas.auth import LoginRequest, RegisterRequest, UserResponse
 from src.domain.services.auth_service import hash_password, verify_password
-
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class TestPasswordHashing:
@@ -67,8 +64,6 @@ class TestAuthSchemas:
 
     def test_register_request_valid(self) -> None:
         """Valid registration request should pass validation."""
-        from src.api.schemas.auth import RegisterRequest
-
         request = RegisterRequest(
             email="test@example.com",
             password="password123",
@@ -82,10 +77,6 @@ class TestAuthSchemas:
 
     def test_register_request_password_min_length(self) -> None:
         """Password must be at least 8 characters."""
-        from pydantic import ValidationError
-
-        from src.api.schemas.auth import RegisterRequest
-
         with pytest.raises(ValidationError) as exc_info:
             RegisterRequest(
                 email="test@example.com",
@@ -96,10 +87,6 @@ class TestAuthSchemas:
 
     def test_register_request_invalid_email(self) -> None:
         """Invalid email should fail validation."""
-        from pydantic import ValidationError
-
-        from src.api.schemas.auth import RegisterRequest
-
         with pytest.raises(ValidationError) as exc_info:
             RegisterRequest(
                 email="not-an-email",
@@ -110,8 +97,6 @@ class TestAuthSchemas:
 
     def test_login_request_valid(self) -> None:
         """Valid login request should pass validation."""
-        from src.api.schemas.auth import LoginRequest
-
         request = LoginRequest(
             email="test@example.com",
             password="password123",
@@ -123,8 +108,6 @@ class TestAuthSchemas:
     def test_user_response_serialization(self) -> None:
         """UserResponse should serialize correctly."""
         from datetime import datetime
-
-        from src.api.schemas.auth import UserResponse
 
         response = UserResponse(
             id="user-123",
