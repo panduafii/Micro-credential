@@ -17,13 +17,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from src.infrastructure.db.models import (
     Assessment,
-    AssessmentResponse,
     AsyncJob,
     JobStatus,
     JobType,
 )
 
-from tests.utils import auth_headers
+from tests.utils import auth_headers, submit_with_payload
 
 
 class TestStatusPolling:
@@ -32,7 +31,6 @@ class TestStatusPolling:
     def test_status_returns_stage_progress(
         self,
         test_client_with_questions: TestClient,
-        event_loop,
     ) -> None:
         """Test that status endpoint returns correct stage progress."""
         headers = auth_headers(user_id="student-status-1")
@@ -48,32 +46,10 @@ class TestStatusPolling:
         assessment_id = data["assessment_id"]
         questions = data["questions"]
 
-        # Step 2: Add responses and submit
-        session_factory = test_client_with_questions.session_factory
-
-        async def add_responses_and_submit():
-            async with session_factory() as session:
-                for q in questions:
-                    if q["question_type"] == "theoretical":
-                        response_data = {"selected_option": "A"}
-                    elif q["question_type"] == "profile":
-                        response_data = {"value": "test value"}
-                    else:  # essay
-                        response_data = {"answer": "This is my essay response."}
-
-                    resp = AssessmentResponse(
-                        assessment_id=assessment_id,
-                        question_snapshot_id=q["id"],
-                        response_data=response_data,
-                    )
-                    session.add(resp)
-                await session.commit()
-
-        event_loop.run_until_complete(add_responses_and_submit())
-
-        # Submit the assessment
-        submit_response = test_client_with_questions.post(
-            f"/assessments/{assessment_id}/submit",
+        submit_response = submit_with_payload(
+            test_client_with_questions,
+            assessment_id,
+            questions,
             headers=headers,
         )
         assert submit_response.status_code == 200
@@ -122,7 +98,6 @@ class TestStatusPolling:
     def test_status_not_owned(
         self,
         test_client_with_questions: TestClient,
-        event_loop,
     ) -> None:
         """Test that status returns 403 for assessment not owned by user."""
         # Create assessment as one user
@@ -210,7 +185,6 @@ class TestWebhookRegistration:
     def test_register_webhook_not_owned(
         self,
         test_client_with_questions: TestClient,
-        event_loop,
     ) -> None:
         """Test webhook registration returns 403 for assessment not owned by user."""
         # Create assessment as one user
@@ -237,7 +211,6 @@ class TestWebhookRegistration:
     def test_register_webhook_invalid_url(
         self,
         test_client_with_questions: TestClient,
-        event_loop,
     ) -> None:
         """Test webhook registration validates URL format."""
         headers = auth_headers(user_id="student-webhook-invalid")
@@ -266,7 +239,6 @@ class TestIdempotencyKey:
     def test_idempotency_key_prevents_duplicate(
         self,
         test_client_with_questions: TestClient,
-        event_loop,
     ) -> None:
         """Test that duplicate idempotency key returns 409."""
         headers = auth_headers(user_id="student-idemp-1")
@@ -278,38 +250,18 @@ class TestIdempotencyKey:
             headers=headers,
         )
         assert response.status_code == 200
-        assessment_id_1 = response.json()["assessment_id"]
-        questions = response.json()["questions"]
-
-        # Add responses for first assessment
-        session_factory = test_client_with_questions.session_factory
-
-        async def add_responses(assessment_id: str):
-            async with session_factory() as session:
-                for q in questions:
-                    if q["question_type"] == "theoretical":
-                        response_data = {"selected_option": "A"}
-                    elif q["question_type"] == "profile":
-                        response_data = {"value": "test value"}
-                    else:
-                        response_data = {"answer": "This is my essay response."}
-
-                    resp = AssessmentResponse(
-                        assessment_id=assessment_id,
-                        question_snapshot_id=q["id"],
-                        response_data=response_data,
-                    )
-                    session.add(resp)
-                await session.commit()
-
-        event_loop.run_until_complete(add_responses(assessment_id_1))
+        first = response.json()
+        assessment_id_1 = first["assessment_id"]
+        questions_1 = first["questions"]
 
         # Submit first assessment with idempotency key
         idempotency_key = f"submit-key-{uuid.uuid4()}"
         headers_with_key = {**headers, "Idempotency-Key": idempotency_key}
 
-        response = test_client_with_questions.post(
-            f"/assessments/{assessment_id_1}/submit",
+        response = submit_with_payload(
+            test_client_with_questions,
+            assessment_id_1,
+            questions_1,
             headers=headers_with_key,
         )
         assert response.status_code == 200
@@ -321,13 +273,15 @@ class TestIdempotencyKey:
             headers=headers,
         )
         assert response.status_code == 200
-        assessment_id_2 = response.json()["assessment_id"]
-
-        event_loop.run_until_complete(add_responses(assessment_id_2))
+        second = response.json()
+        assessment_id_2 = second["assessment_id"]
+        questions_2 = second["questions"]
 
         # Try to submit second assessment with same idempotency key
-        response = test_client_with_questions.post(
-            f"/assessments/{assessment_id_2}/submit",
+        response = submit_with_payload(
+            test_client_with_questions,
+            assessment_id_2,
+            questions_2,
             headers=headers_with_key,
         )
         assert response.status_code == 409
@@ -336,7 +290,6 @@ class TestIdempotencyKey:
     def test_submit_without_idempotency_key_works(
         self,
         test_client_with_questions: TestClient,
-        event_loop,
     ) -> None:
         """Test that submissions without idempotency key still work."""
         headers = auth_headers(user_id="student-idemp-2")
@@ -348,35 +301,15 @@ class TestIdempotencyKey:
             headers=headers,
         )
         assert response.status_code == 200
-        assessment_id = response.json()["assessment_id"]
-        questions = response.json()["questions"]
-
-        # Add responses
-        session_factory = test_client_with_questions.session_factory
-
-        async def add_responses():
-            async with session_factory() as session:
-                for q in questions:
-                    if q["question_type"] == "theoretical":
-                        response_data = {"selected_option": "A"}
-                    elif q["question_type"] == "profile":
-                        response_data = {"value": "test value"}
-                    else:
-                        response_data = {"answer": "This is my essay response."}
-
-                    resp = AssessmentResponse(
-                        assessment_id=assessment_id,
-                        question_snapshot_id=q["id"],
-                        response_data=response_data,
-                    )
-                    session.add(resp)
-                await session.commit()
-
-        event_loop.run_until_complete(add_responses())
+        data = response.json()
+        assessment_id = data["assessment_id"]
+        questions = data["questions"]
 
         # Submit without idempotency key (should work)
-        response = test_client_with_questions.post(
-            f"/assessments/{assessment_id}/submit",
+        response = submit_with_payload(
+            test_client_with_questions,
+            assessment_id,
+            questions,
             headers=headers,
         )
         assert response.status_code == 200
@@ -405,32 +338,13 @@ class TestStatusProgressCalculation:
         questions = data["questions"]
 
         session_factory = test_client_with_questions.session_factory
-
-        async def add_responses_and_submit():
-            async with session_factory() as session:
-                for q in questions:
-                    if q["question_type"] == "theoretical":
-                        response_data = {"selected_option": "A"}
-                    elif q["question_type"] == "profile":
-                        response_data = {"value": "test value"}
-                    else:
-                        response_data = {"answer": "This is my essay response."}
-
-                    resp = AssessmentResponse(
-                        assessment_id=assessment_id,
-                        question_snapshot_id=q["id"],
-                        response_data=response_data,
-                    )
-                    session.add(resp)
-                await session.commit()
-
-        event_loop.run_until_complete(add_responses_and_submit())
-
-        # Submit
-        test_client_with_questions.post(
-            f"/assessments/{assessment_id}/submit",
+        submit_response = submit_with_payload(
+            test_client_with_questions,
+            assessment_id,
+            questions,
             headers=headers,
         )
+        assert submit_response.status_code == 200
 
         # Manually complete GPT job
         async def complete_gpt_job():

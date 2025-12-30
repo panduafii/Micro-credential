@@ -26,6 +26,11 @@ class Settings(BaseSettings):
         default="redis://localhost:6379/0",
         validation_alias="REDIS_URL",
     )
+    auto_process_jobs: bool = Field(
+        default=False,
+        validation_alias="AUTO_PROCESS_JOBS",
+        description="Run GPT/RAG/Fusion pipeline automatically after submissions",
+    )
 
     @property
     def async_database_url(self) -> str:

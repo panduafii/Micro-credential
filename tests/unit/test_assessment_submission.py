@@ -19,14 +19,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from src.infrastructure.db.models import (
     Assessment,
-    AssessmentResponse,
     AssessmentStatus,
     AsyncJob,
     JobStatus,
     JobType,
 )
 
-from tests.utils import auth_headers
+from tests.utils import auth_headers, build_responses_payload
 
 
 class TestSubmitAssessment:
@@ -35,7 +34,6 @@ class TestSubmitAssessment:
     def test_submit_assessment_success(
         self,
         test_client_with_questions: TestClient,
-        event_loop,
     ) -> None:
         """Test successful assessment submission with rule-based scoring."""
         headers = auth_headers(user_id="student-submit-1")
@@ -51,33 +49,11 @@ class TestSubmitAssessment:
         assessment_id = data["assessment_id"]
         questions = data["questions"]
 
-        # Step 2: Submit responses for all questions in DB
-        session_factory = test_client_with_questions.session_factory
-
-        async def add_responses():
-            async with session_factory() as session:
-                for q in questions:
-                    if q["question_type"] == "theoretical":
-                        response_data = {"selected_option": "A"}
-                    elif q["question_type"] == "profile":
-                        response_data = {"value": "test value"}
-                    else:  # essay
-                        response_data = {"answer": "This is my essay response."}
-
-                    resp = AssessmentResponse(
-                        assessment_id=assessment_id,
-                        question_snapshot_id=q["id"],
-                        response_data=response_data,
-                    )
-                    session.add(resp)
-                await session.commit()
-
-        event_loop.run_until_complete(add_responses())
-
-        # Step 3: Submit the assessment
+        payload = build_responses_payload(questions)
         response = test_client_with_questions.post(
             f"/assessments/{assessment_id}/submit",
             headers=headers,
+            json=payload,
         )
         assert response.status_code == 200
         result = response.json()
@@ -100,6 +76,32 @@ class TestSubmitAssessment:
         # Verify async jobs were queued
         assert "rag" in result["jobs_queued"]
         assert "fusion" in result["jobs_queued"]
+
+    def test_submit_assessment_invalid_question_id(
+        self,
+        test_client_with_questions: TestClient,
+    ) -> None:
+        """Submitting with an unknown question snapshot returns 400."""
+        headers = auth_headers(user_id="student-submit-invalid")
+        response = test_client_with_questions.post(
+            "/assessments/start",
+            json={"role_slug": "backend-engineer"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assessment_id = data["assessment_id"]
+        questions = data["questions"]
+
+        payload = build_responses_payload(questions)
+        payload["responses"][0]["question_id"] = "missing-question"
+        response = test_client_with_questions.post(
+            f"/assessments/{assessment_id}/submit",
+            headers=headers,
+            json=payload,
+        )
+        assert response.status_code == 400
+        assert "Invalid question_id" in response.json()["detail"]
 
     def test_submit_assessment_not_found(
         self,
@@ -209,7 +211,6 @@ class TestRuleScoring:
     def test_theoretical_scoring(
         self,
         test_client_with_questions: TestClient,
-        event_loop,
     ) -> None:
         """Test theoretical question scores based on rule matching."""
         headers = auth_headers(user_id="student-theoretical")
@@ -224,41 +225,23 @@ class TestRuleScoring:
         assessment_id = data["assessment_id"]
         questions = data["questions"]
 
-        # Add response to theoretical question
-        theoretical_q = next((q for q in questions if q["question_type"] == "theoretical"), None)
-        if theoretical_q:
-            session_factory = test_client_with_questions.session_factory
-
-            async def add_response():
-                async with session_factory() as session:
-                    resp = AssessmentResponse(
-                        assessment_id=assessment_id,
-                        question_snapshot_id=theoretical_q["id"],
-                        response_data={"selected_option": "A"},
-                    )
-                    session.add(resp)
-                    await session.commit()
-
-            event_loop.run_until_complete(add_response())
-
-        # Submit
+        payload = build_responses_payload(questions)
         response = test_client_with_questions.post(
             f"/assessments/{assessment_id}/submit",
             headers=headers,
+            json=payload,
         )
         assert response.status_code == 200
         result = response.json()
 
         # Check theoretical scores exist
         theoretical_scores = result["scores"]["theoretical"]
-        # At least one score if we had a theoretical question
-        if theoretical_q:
-            assert theoretical_scores["count"] >= 1
+        theoretical_count = sum(1 for q in questions if q["question_type"] == "theoretical")
+        assert theoretical_scores["count"] == theoretical_count
 
     def test_profile_completeness_scoring(
         self,
         test_client_with_questions: TestClient,
-        event_loop,
     ) -> None:
         """Test profile question scores based on completeness."""
         headers = auth_headers(user_id="student-profile")
@@ -273,27 +256,12 @@ class TestRuleScoring:
         assessment_id = data["assessment_id"]
         questions = data["questions"]
 
-        # Find profile questions and add responses
         profile_questions = [q for q in questions if q["question_type"] == "profile"]
-        session_factory = test_client_with_questions.session_factory
-
-        async def add_responses():
-            async with session_factory() as session:
-                for q in profile_questions:
-                    resp = AssessmentResponse(
-                        assessment_id=assessment_id,
-                        question_snapshot_id=q["id"],
-                        response_data={"value": "test profile value"},
-                    )
-                    session.add(resp)
-                await session.commit()
-
-        event_loop.run_until_complete(add_responses())
-
-        # Submit
+        payload = build_responses_payload(questions)
         response = test_client_with_questions.post(
             f"/assessments/{assessment_id}/submit",
             headers=headers,
+            json=payload,
         )
         assert response.status_code == 200
         result = response.json()
@@ -323,12 +291,15 @@ class TestAsyncJobCreation:
             json={"role_slug": "backend-engineer"},
             headers=headers,
         )
-        assessment_id = response.json()["assessment_id"]
+        data = response.json()
+        assessment_id = data["assessment_id"]
+        questions = data["questions"]
 
-        # Submit
+        payload = build_responses_payload(questions)
         response = test_client_with_questions.post(
             f"/assessments/{assessment_id}/submit",
             headers=headers,
+            json=payload,
         )
         assert response.status_code == 200
         result = response.json()
@@ -378,9 +349,11 @@ class TestAsyncJobCreation:
         has_essays = any(q["question_type"] == "essay" for q in questions)
 
         # Submit
+        payload = build_responses_payload(questions)
         response = test_client_with_questions.post(
             f"/assessments/{assessment_id}/submit",
             headers=headers,
+            json=payload,
         )
         assert response.status_code == 200
         result = response.json()

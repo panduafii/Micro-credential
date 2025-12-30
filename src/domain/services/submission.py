@@ -51,16 +51,20 @@ class AssessmentExpiredError(Exception):
     """Raised when assessment has expired."""
 
 
+class DuplicateSubmissionError(Exception):
+    """Raised when a duplicate submission is detected via idempotency key."""
+
+
+class InvalidResponseError(Exception):
+    """Raised when the client submits responses that cannot be persisted."""
+
+
 class IncompleteResponsesError(Exception):
     """Raised when not all questions have responses."""
 
     def __init__(self, message: str, missing_count: int):
         super().__init__(message)
         self.missing_count = missing_count
-
-
-class DuplicateSubmissionError(Exception):
-    """Raised when a duplicate submission is detected via idempotency key."""
 
 
 @dataclass(slots=True)
@@ -99,6 +103,7 @@ class SubmissionService:
         assessment_id: str,
         user_id: str,
         idempotency_key: str | None = None,
+        responses_payload: list[dict[str, Any]] | None = None,
     ) -> SubmissionResult:
         """
         Submit an assessment for scoring.
@@ -122,9 +127,12 @@ class SubmissionService:
         # Validate ownership and state
         self._validate_submission(assessment, user_id)
 
+        responses = assessment.responses
+        if responses_payload:
+            responses = await self._persist_responses(assessment, responses_payload)
+
         # Check for incomplete responses
         snapshots = assessment.question_snapshots
-        responses = assessment.responses
         missing_count = self._check_completion(snapshots, responses)
 
         # Set degraded flag if missing responses
@@ -176,6 +184,88 @@ class SubmissionService:
             scores=score_summary,
             jobs_queued=jobs_queued,
         )
+
+    async def _persist_responses(
+        self,
+        assessment: Assessment,
+        responses_payload: list[dict[str, Any]],
+    ) -> list[AssessmentResponse]:
+        if not responses_payload:
+            return list(assessment.responses)
+
+        snapshot_map = {snapshot.id: snapshot for snapshot in assessment.question_snapshots}
+        existing_map = {
+            response.question_snapshot_id: response
+            for response in assessment.responses
+        }
+        updated_responses = list(assessment.responses)
+
+        for payload in responses_payload:
+            snapshot_id = payload.get("question_id")
+            snapshot = snapshot_map.get(snapshot_id or "")
+            if snapshot is None:
+                raise InvalidResponseError(f"Invalid question_id: {snapshot_id}")
+
+            response_data = self._normalize_response_payload(snapshot, payload)
+
+            if snapshot_id in existing_map:
+                existing_map[snapshot_id].response_data = response_data
+            else:
+                response = AssessmentResponse(
+                    assessment_id=assessment.id,
+                    question_snapshot_id=snapshot_id,
+                    response_data=response_data,
+                )
+                self.session.add(response)
+                updated_responses.append(response)
+
+        await self.session.flush()
+        return updated_responses
+
+    def _normalize_response_payload(
+        self,
+        snapshot: AssessmentQuestionSnapshot,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        question_type = snapshot.question_type
+        metadata = payload.get("metadata")
+        response: dict[str, Any] = {}
+
+        if question_type == QuestionType.ESSAY:
+            answer = self._clean_text(
+                payload.get("answer_text")
+                or payload.get("answer")
+                or payload.get("value")
+            )
+            if answer:
+                response["answer"] = answer
+        elif question_type == QuestionType.THEORETICAL:
+            selected = self._clean_text(
+                payload.get("selected_option")
+                or payload.get("selected_option_id")
+                or payload.get("answer_text")
+                or payload.get("value")
+            )
+            if selected:
+                response["selected_option"] = selected
+            if payload.get("selected_option_id"):
+                response["selected_option_id"] = self._clean_text(payload["selected_option_id"])
+        else:  # Profile question
+            value = self._clean_text(
+                payload.get("value") or payload.get("answer_text") or payload.get("answer")
+            )
+            if value:
+                response["value"] = value
+
+        if metadata is not None:
+            response["metadata"] = metadata
+        return response
+
+    @staticmethod
+    def _clean_text(value: Any) -> Any:
+        if isinstance(value, str):
+            return value.strip()
+        return value
 
     async def _check_idempotency_key(self, idempotency_key: str) -> Assessment | None:
         """Check if an assessment with this idempotency key already exists."""

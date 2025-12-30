@@ -24,6 +24,7 @@
    ```bash
    cp .env.example .env
    ```
+   - Keep `AUTO_PROCESS_JOBS=false` for local work so submissions only enqueue jobs (handled by the worker).
 3. Launch backing services along with API and worker:
    ```bash
    docker compose up --build
@@ -52,6 +53,17 @@
        -X POST http://localhost:8000/assessments/start \
        -d '{"role_slug": "backend-engineer"}'
   ```
+- Submit an assessment payload (omit `responses` to test degraded submissions):
+  ```bash
+  curl -H "Authorization: Bearer <token>" \
+       -X POST http://localhost:8000/assessments/{assessment_id}/submit \
+       -d '{
+             "responses": [
+               {"question_id": "snap-uuid-1", "selected_option": "A"},
+               {"question_id": "snap-uuid-2", "answer_text": "Essay text", "metadata": {"source": "ui"}}
+             ]
+           }'
+  ```
 - Execute linting and tests:
   ```bash
   scripts/run-tests.sh
@@ -79,6 +91,10 @@ git push origin main
 ```
 
 **Complete deployment guide**: See [RENDER-DEPLOYMENT.md](RENDER-DEPLOYMENT.md)
+
+**Auto job processing**:
+- Set `AUTO_PROCESS_JOBS=true` on Render so the API triggers GPT/RAG/Fusion scoring as soon as a submission lands (no worker dyno required).
+- Keep the flag `false` locally or when a dedicated worker is running; jobs will still enqueue to Redis and be consumed by `src.workers.worker`.
 
 **What gets deployed:**
 - ✅ FastAPI application (free tier)
@@ -189,4 +205,3 @@ git push
 - [x] Story 3.1: RAG Retrieval Service
 - [x] Story 3.2: Fusion Summary and Result Endpoint
 - [x] Story 3.3: Feedback Collection
-

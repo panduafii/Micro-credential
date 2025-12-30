@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+import structlog
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.deps import get_db_session, require_roles
 from src.api.schemas.assessments import (
@@ -9,6 +10,7 @@ from src.api.schemas.assessments import (
     AssessmentStartRequest,
     AssessmentStartResponse,
     AssessmentStatusResponse,
+    AssessmentSubmitRequest,
     AssessmentSubmitResponse,
     EssayScoreStatus,
     FeedbackCreateRequest,
@@ -24,16 +26,14 @@ from src.api.schemas.assessments import (
     WebhookRegisterResponse,
 )
 from src.api.schemas.tracks import TrackItem
+from src.core.config import get_settings
 from src.domain import User
 from src.domain.services.assessments import (
     AssessmentService,
     MissingQuestionTemplateError,
     RoleNotFoundError,
 )
-from src.domain.services.feedback import (
-    FeedbackService,
-    RecommendationNotFoundError,
-)
+from src.domain.services.feedback import FeedbackService, RecommendationNotFoundError
 from src.domain.services.fusion import FusionService
 from src.domain.services.status import (
     AssessmentNotFoundError as StatusNotFoundError,
@@ -50,10 +50,13 @@ from src.domain.services.submission import (
     AssessmentNotFoundError,
     AssessmentNotOwnedError,
     DuplicateSubmissionError,
+    InvalidResponseError,
     SubmissionService,
 )
+from src.workers.pipeline import process_assessment_jobs
 
 router = APIRouter(prefix="/assessments", tags=["Assessments"])
+logger = structlog.get_logger(__name__)
 
 
 @router.post("/start", response_model=AssessmentStartResponse)
@@ -82,6 +85,8 @@ async def start_assessment(
 @router.post("/{assessment_id}/submit", response_model=AssessmentSubmitResponse)
 async def submit_assessment(
     assessment_id: str,
+    background_tasks: BackgroundTasks,
+    payload: AssessmentSubmitRequest | None = None,
     session: AsyncSession = Depends(get_db_session),
     user: User = Depends(require_roles(["student"])),
     idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
@@ -95,11 +100,16 @@ async def submit_assessment(
     - Supports idempotency key to prevent duplicate submissions
     """
     service = SubmissionService(session)
+    responses_payload: list[dict] = []
+    if payload and payload.responses:
+        responses_payload = [response.model_dump() for response in payload.responses]
+
     try:
         result = await service.submit_assessment(
             assessment_id=assessment_id,
             user_id=user.user_id,
             idempotency_key=idempotency_key,
+            responses_payload=responses_payload,
         )
     except AssessmentNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
@@ -111,6 +121,12 @@ async def submit_assessment(
         raise HTTPException(status_code=status.HTTP_410_GONE, detail=str(exc)) from exc
     except DuplicateSubmissionError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except InvalidResponseError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    settings = get_settings()
+    if settings.auto_process_jobs:
+        background_tasks.add_task(_run_async_pipeline, result.assessment_id)
 
     # Convert result to response schema
     return AssessmentSubmitResponse(
@@ -326,3 +342,14 @@ async def submit_feedback(
         comment=result.get("comment"),
         created_at=result["created_at"],
     )
+
+
+async def _run_async_pipeline(assessment_id: str) -> None:
+    try:
+        await process_assessment_jobs(assessment_id)
+    except Exception as exc:  # pragma: no cover - background best effort
+        logger.exception(
+            "async_pipeline_failed",
+            assessment_id=assessment_id,
+            error=str(exc),
+        )

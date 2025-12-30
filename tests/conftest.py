@@ -23,13 +23,6 @@ from src.infrastructure.db.models import (
 )
 
 
-@pytest.fixture(scope="session")
-def event_loop() -> Iterator[asyncio.AbstractEventLoop]:
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
 @pytest.fixture()
 def test_client(event_loop: asyncio.AbstractEventLoop) -> Iterator[TestClient]:
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", future=True)

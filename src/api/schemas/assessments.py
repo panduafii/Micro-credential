@@ -25,6 +25,23 @@ class AssessmentStartResponse(BaseModel):
     questions: list[AssessmentQuestion]
 
 
+# Story 2.1: Submission request schema
+class AssessmentResponsePayload(BaseModel):
+    question_id: str
+    answer_text: str | None = None
+    selected_option: str | None = None
+    selected_option_id: str | None = None
+    value: str | None = None
+    metadata: dict | None = None
+
+
+class AssessmentSubmitRequest(BaseModel):
+    responses: list[AssessmentResponsePayload] = Field(
+        default_factory=list,
+        description="Student responses collected on the client",
+    )
+
+
 # Story 2.1: Submission schemas
 class ScoreBreakdownItem(BaseModel):
     question_id: str
