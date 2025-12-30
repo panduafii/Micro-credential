@@ -58,6 +58,56 @@ class JobStatus(str, enum.Enum):
     FAILED = "failed"
 
 
+class UserStatus(str, enum.Enum):
+    """User account status."""
+
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    SUSPENDED = "suspended"
+
+
+class UserRole(str, enum.Enum):
+    """User role enum matching auth.Role."""
+
+    STUDENT = "student"
+    ADVISOR = "advisor"
+    ADMIN = "admin"
+
+
+class UserModel(Base):
+    """SQLAlchemy model for users table."""
+
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    role: Mapped[UserRole] = mapped_column(
+        Enum(UserRole, name="user_role", values_callable=lambda e: [x.value for x in e]),
+        default=UserRole.STUDENT,
+        nullable=False,
+    )
+    status: Mapped[UserStatus] = mapped_column(
+        Enum(UserStatus, name="user_status", values_callable=lambda e: [x.value for x in e]),
+        default=UserStatus.ACTIVE,
+        nullable=False,
+    )
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<UserModel(id={self.id}, email={self.email}, role={self.role.value})>"
+
+
 class RoleCatalog(Base):
     __tablename__ = "role_catalog"
 
@@ -370,3 +420,25 @@ class Feedback(Base):
     )
 
     recommendation: Mapped[Recommendation] = relationship()
+
+
+__all__ = [
+    "QuestionType",
+    "AssessmentStatus",
+    "JobType",
+    "JobStatus",
+    "UserStatus",
+    "UserRole",
+    "UserModel",
+    "RoleCatalog",
+    "QuestionTemplate",
+    "Assessment",
+    "AssessmentQuestionSnapshot",
+    "AssessmentResponse",
+    "Score",
+    "AsyncJob",
+    "Recommendation",
+    "RecommendationItem",
+    "Feedback",
+]
+

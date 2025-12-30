@@ -8,6 +8,7 @@
 - 📚 **[Deployment Guide](RENDER-DEPLOYMENT.md)** - Deploy to Render in 5 minutes
 - 📖 **[API Documentation](http://localhost:8000/docs)** - Swagger UI (after running locally)
 - 🎨 **[Frontend Guide](docs/FE-GUIDE.md)** - Complete frontend development guide
+- **[Deployed:]** microcred-api.onrender.com
 
 ## Prerequisites
 - Python 3.12.2

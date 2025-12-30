@@ -24,6 +24,8 @@ alembic = "1.13.2"
 asyncpg = "0.29.0"
 aiosqlite = "0.20.0"
 psycopg2-binary = "2.9.9"
+email-validator = "^2.3.0"
+bcrypt = "4.0.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "8.2.1"
