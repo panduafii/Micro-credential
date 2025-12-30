@@ -29,6 +29,10 @@ class QuestionType(str, enum.Enum):
 
 
 class AssessmentStatus(str, enum.Enum):
+    """Assessment workflow status enum.
+    
+    Note: Must use name='assessment_status' in Enum() to match database enum type.
+    """
     DRAFT = "draft"
     IN_PROGRESS = "in_progress"
     SUBMITTED = "submitted"  # Awaiting async scoring
@@ -85,7 +89,10 @@ class QuestionTemplate(Base):
         ForeignKey("role_catalog.slug", ondelete="CASCADE"), nullable=False
     )
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
-    question_type: Mapped[QuestionType] = mapped_column(Enum(QuestionType), nullable=False)
+    question_type: Mapped[QuestionType] = mapped_column(
+        Enum(QuestionType, name="question_type", values_callable=lambda e: [x.value for x in e]),
+        nullable=False,
+    )
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSON)
 
@@ -110,7 +117,11 @@ class Assessment(Base):
         ForeignKey("role_catalog.slug", ondelete="RESTRICT"), nullable=False
     )
     status: Mapped[AssessmentStatus] = mapped_column(
-        Enum(AssessmentStatus),
+        Enum(
+            AssessmentStatus,
+            name="assessment_status",
+            values_callable=lambda enum: [e.value for e in enum],
+        ),
         default=AssessmentStatus.DRAFT,
         nullable=False,
         index=True,
@@ -166,7 +177,10 @@ class AssessmentQuestionSnapshot(Base):
         ForeignKey("question_templates.id", ondelete="SET NULL"),
     )
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
-    question_type: Mapped[QuestionType] = mapped_column(Enum(QuestionType), nullable=False)
+    question_type: Mapped[QuestionType] = mapped_column(
+        Enum(QuestionType, name="question_type", values_callable=lambda e: [x.value for x in e]),
+        nullable=False,
+    )
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSON)
 
@@ -226,7 +240,10 @@ class Score(Base):
         ForeignKey("assessment_question_snapshots.id", ondelete="CASCADE"),
         nullable=False,
     )
-    question_type: Mapped[QuestionType] = mapped_column(Enum(QuestionType), nullable=False)
+    question_type: Mapped[QuestionType] = mapped_column(
+        Enum(QuestionType, name="question_type", values_callable=lambda e: [x.value for x in e]),
+        nullable=False,
+    )
     score: Mapped[float] = mapped_column(nullable=False)
     max_score: Mapped[float] = mapped_column(nullable=False, default=100.0)
     explanation: Mapped[str | None] = mapped_column(Text, nullable=True)

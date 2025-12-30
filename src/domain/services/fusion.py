@@ -228,7 +228,7 @@ class FusionService:
         rag_traces = recommendation.rag_traces if recommendation else None
 
         # Generate summary
-        role_title = assessment.role.title if assessment.role else assessment.role_slug
+        role_title = assessment.role.name if assessment.role else assessment.role_slug
         summary = self._generate_summary(role_title, breakdown, items, degraded)
 
         # Calculate processing duration
@@ -388,7 +388,7 @@ class FusionService:
                     "course_url": item.course_url,
                     "relevance_score": item.relevance_score,
                     "match_reason": item.match_reason,
-                    "metadata": item.metadata,
+                    "metadata": item.course_metadata,
                 }
                 for item in recommendation.items
             ],

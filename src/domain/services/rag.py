@@ -464,6 +464,6 @@ class RAGService:
                 course_url=match.url,
                 relevance_score=match.relevance_score,
                 match_reason=match.match_reason,
-                metadata=match.metadata,
+                course_metadata=match.metadata,
             )
             self.session.add(item)
