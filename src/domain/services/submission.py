@@ -195,8 +195,7 @@ class SubmissionService:
 
         snapshot_map = {snapshot.id: snapshot for snapshot in assessment.question_snapshots}
         existing_map = {
-            response.question_snapshot_id: response
-            for response in assessment.responses
+            response.question_snapshot_id: response for response in assessment.responses
         }
         updated_responses = list(assessment.responses)
 
@@ -233,9 +232,7 @@ class SubmissionService:
 
         if question_type == QuestionType.ESSAY:
             answer = self._clean_text(
-                payload.get("answer_text")
-                or payload.get("answer")
-                or payload.get("value")
+                payload.get("answer_text") or payload.get("answer") or payload.get("value")
             )
             if answer:
                 response["answer"] = answer

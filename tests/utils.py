@@ -32,9 +32,9 @@ def build_responses_payload(
             if qtype == "theoretical":
                 data["selected_option"] = "A"
             elif qtype == "essay":
-                data["answer_text"] = f"Sample essay response {question['sequence']}"
+                data["answer_text"] = f"Sample essay response {question["sequence"]}"
             else:  # profile
-                data["value"] = f"Sample profile answer {question['sequence']}"
+                data["value"] = f"Sample profile answer {question["sequence"]}"
         responses.append(data)
 
     return {"responses": responses}

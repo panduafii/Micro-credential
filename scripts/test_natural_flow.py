@@ -271,7 +271,7 @@ async def submit_realistic_assessment(role_slug: str = "backend-engineer"):
                 # Show preview
                 answer_text = NATURAL_ANSWERS[seq]["response_data"].get("answer_text", "")
                 preview = answer_text[:80] + "..." if len(answer_text) > 80 else answer_text
-                print(f"✅ Q{seq} ({q['question_type']}): {preview}")
+                print(f"✅ Q{seq} ({q["question_type"]}): {preview}")
 
         await session.commit()
         print(f"\n✅ Answered {answered}/{len(questions)} questions")
@@ -290,13 +290,13 @@ async def submit_realistic_assessment(role_slug: str = "backend-engineer"):
         profile = scores.get("profile", {})
         essay = scores.get("essay", {})
 
-        print(f"📊 Theoretical Score: {theoretical.get('total', 0)}/{theoretical.get('max', 0)}")
-        print(f"👤 Profile Score: {profile.get('total', 0)}/{profile.get('max', 0)}")
-        print(f"✍️  Essay Score: {essay.get('total', 0)}/{essay.get('max', 0)}")
+        print(f"📊 Theoretical Score: {theoretical.get("total", 0)}/{theoretical.get("max", 0)}")
+        print(f"👤 Profile Score: {profile.get("total", 0)}/{profile.get("max", 0)}")
+        print(f"✍️  Essay Score: {essay.get("total", 0)}/{essay.get("max", 0)}")
 
         total = theoretical.get("total", 0) + profile.get("total", 0) + essay.get("total", 0)
         print(f"📈 Total: {total}")
-        print(f"🔄 Jobs Queued: {', '.join(submit_result.jobs_queued)}")
+        print(f"🔄 Jobs Queued: {", ".join(submit_result.jobs_queued)}")
         print(f"⚠️  Degraded: {submit_result.degraded}")
         print("=" * 60)
 
