@@ -13,9 +13,14 @@ pip install poetry==${POETRY_VERSION:-1.8.4}
 # Configure Poetry for production
 poetry config virtualenvs.create false
 
-# Install dependencies (production only, no dev dependencies)
+# Install ALL dependencies (including dev for linting)
 echo "📦 Installing dependencies..."
-poetry install --no-dev --no-interaction --no-ansi
+poetry install --no-interaction --no-ansi
+
+# Format and lint check (auto-fix any issues)
+echo "🔍 Running code formatting..."
+poetry run ruff format .
+poetry run ruff check . --fix || true
 
 # Run database migrations
 echo "🗄️  Running database migrations..."
