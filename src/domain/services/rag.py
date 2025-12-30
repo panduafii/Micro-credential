@@ -8,6 +8,9 @@ Can be upgraded to Chroma/PGVector for production.
 from __future__ import annotations
 
 import csv
+import math
+import re
+from collections import Counter
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -17,11 +20,15 @@ import structlog
 from sqlalchemy import select
 from src.infrastructure.db.models import (
     Assessment,
+    AssessmentQuestionSnapshot,
+    AssessmentResponse,
     AsyncJob,
     JobStatus,
     JobType,
+    QuestionType,
     Recommendation,
     RecommendationItem,
+    Score,
 )
 
 if TYPE_CHECKING:
@@ -101,6 +108,38 @@ ROLE_KEYWORDS: dict[str, list[str]] = {
     ],
 }
 
+TOPIC_KEYWORDS: dict[str, list[str]] = {
+    "api": ["api", "rest", "graphql"],
+    "database": ["database", "sql", "postgres", "mysql"],
+    "performance": ["cache", "caching", "performance"],
+    "testing": ["test", "testing", "pytest", "unit"],
+    "backend": ["backend", "server", "node", "python", "go", "java"],
+    "cloud": ["aws", "gcp", "azure", "cloud", "docker", "kubernetes"],
+    "data": ["data", "analytics", "statistics", "sql"],
+    "visualization": ["visualization", "dashboard", "tableau", "powerbi", "power"],
+}
+
+STOPWORDS = {
+    "and",
+    "the",
+    "for",
+    "with",
+    "to",
+    "of",
+    "in",
+    "a",
+    "on",
+    "an",
+    "your",
+    "how",
+    "what",
+    "why",
+    "is",
+    "are",
+    "this",
+    "that",
+}
+
 
 @dataclass
 class CourseMatch:
@@ -145,6 +184,7 @@ class RAGService:
             with open(COURSES_CSV_PATH, encoding="utf-8") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
+                    self._annotate_course(row)
                     courses.append(row)
             self._courses = courses
         except FileNotFoundError:
@@ -153,11 +193,46 @@ class RAGService:
 
         return self._courses
 
+    def _annotate_course(self, course: dict) -> None:
+        title = course.get("course_title", "")
+        subject = course.get("subject", "")
+        text = f"{title} {subject}".lower()
+        tags = self._extract_topic_tags(text)
+        tokens = self._tokenize(text)
+        course["_tags"] = tags
+        course["_vector"] = self._hash_embedding(tokens)
+
+    def _tokenize(self, text: str) -> list[str]:
+        clean = re.sub(r"[^a-z0-9]+", " ", text.lower())
+        return [t for t in clean.split() if len(t) > 2 and t not in STOPWORDS]
+
+    def _extract_topic_tags(self, text: str) -> list[str]:
+        tags = []
+        for topic, keywords in TOPIC_KEYWORDS.items():
+            if any(keyword in text for keyword in keywords):
+                tags.append(topic)
+        return tags
+
+    def _hash_embedding(self, tokens: list[str], dim: int = 128) -> list[float]:
+        vec = [0.0] * dim
+        for token in tokens:
+            idx = hash(token) % dim
+            vec[idx] += 1.0
+        norm = math.sqrt(sum(v * v for v in vec)) or 1.0
+        return [v / norm for v in vec]
+
+    @staticmethod
+    def _cosine_similarity(a: list[float], b: list[float]) -> float:
+        if not a or not b:
+            return 0.0
+        return sum(x * y for x, y in zip(a, b, strict=False))
+
     def _build_query(
         self,
         role_slug: str,
         profile_signals: dict | None = None,
         essay_keywords: list[str] | None = None,
+        missed_topics: list[str] | None = None,
     ) -> str:
         """Build RAG query from role context and signals."""
         query_parts = []
@@ -176,6 +251,9 @@ class RAGService:
         # Add essay keywords if extracted
         if essay_keywords:
             query_parts.extend(essay_keywords[:3])
+
+        if missed_topics:
+            query_parts.extend(missed_topics[:5])
 
         return " ".join(query_parts)
 
@@ -216,6 +294,7 @@ class RAGService:
         self,
         query: str,
         top_k: int = 5,
+        missed_topics: list[str] | None = None,
     ) -> list[CourseMatch]:
         """Retrieve top-K courses matching the query."""
         courses = self._load_courses()
@@ -226,9 +305,18 @@ class RAGService:
         if not query_terms:
             return []
 
+        query_vec = self._hash_embedding(self._tokenize(query))
+        missed_topics = missed_topics or []
+
         scored_courses = []
         for course in courses:
-            score = self._calculate_relevance(course, query_terms)
+            keyword_score = self._calculate_relevance(course, query_terms)
+            embedding_score = self._cosine_similarity(query_vec, course.get("_vector", []))
+            tag_boost = 0.0
+            course_tags = course.get("_tags", [])
+            if missed_topics and any(tag in missed_topics for tag in course_tags):
+                tag_boost = 0.1
+            score = keyword_score * 0.6 + embedding_score * 0.4 + tag_boost
             if score > 0.1:  # Minimum threshold
                 scored_courses.append((course, score))
 
@@ -240,6 +328,7 @@ class RAGService:
             # Find which terms matched
             title = course.get("course_title", "").lower()
             matched_terms = [t for t in query_terms if t.lower() in title]
+            matched_topics = [t for t in (course.get("_tags", []) or []) if t in missed_topics]
 
             matches.append(
                 CourseMatch(
@@ -247,7 +336,14 @@ class RAGService:
                     title=course.get("course_title", ""),
                     url=course.get("url"),
                     relevance_score=round(score, 3),
-                    match_reason="Matches: " + (", ".join(matched_terms[:3]) or "subject area"),
+                    match_reason=(
+                        "Matches: "
+                        + (
+                            ", ".join(matched_terms[:3])
+                            or ", ".join(matched_topics[:3])
+                            or "subject area"
+                        )
+                    ),
                     metadata={
                         "subject": course.get("subject", ""),
                         "level": course.get("level", ""),
@@ -255,6 +351,7 @@ class RAGService:
                         "num_reviews": course.get("num_reviews", ""),
                         "is_paid": course.get("is_paid", ""),
                         "price": course.get("price", ""),
+                        "tags": course.get("_tags", []),
                     },
                 )
             )
@@ -267,6 +364,7 @@ class RAGService:
         role_slug: str,
         profile_signals: dict | None = None,
         essay_keywords: list[str] | None = None,
+        missed_topics: list[str] | None = None,
         top_k: int = 5,
     ) -> RAGResult:
         """
@@ -276,10 +374,10 @@ class RAGService:
         AC2: Returns Top-K credentials with metadata.
         AC4: Static fallback when retrieval fails.
         """
-        query = self._build_query(role_slug, profile_signals, essay_keywords)
+        query = self._build_query(role_slug, profile_signals, essay_keywords, missed_topics)
 
         try:
-            matches = self._retrieve_courses(query, top_k)
+            matches = self._retrieve_courses(query, top_k, missed_topics)
 
             if not matches:
                 # AC4: Static fallback
@@ -393,6 +491,7 @@ class RAGService:
 
         # Extract essay keywords from scores/responses
         essay_keywords = await self._extract_essay_keywords(assessment_id)
+        missed_topics = await self._extract_missed_topics(assessment_id)
 
         # Retrieve recommendations
         rag_result = await self.retrieve_recommendations(
@@ -400,6 +499,7 @@ class RAGService:
             role_slug=assessment.role_slug,
             profile_signals=profile_signals,
             essay_keywords=essay_keywords,
+            missed_topics=missed_topics,
         )
 
         # AC3: Persist results
@@ -418,13 +518,71 @@ class RAGService:
 
     async def _extract_profile_signals(self, assessment_id: str) -> dict:
         """Extract profile signals from assessment responses."""
-        # For now, return empty - can be enhanced later
-        return {}
+        stmt = (
+            select(AssessmentQuestionSnapshot, AssessmentResponse)
+            .join(
+                AssessmentResponse,
+                AssessmentResponse.question_snapshot_id == AssessmentQuestionSnapshot.id,
+            )
+            .where(
+                AssessmentQuestionSnapshot.assessment_id == assessment_id,
+                AssessmentQuestionSnapshot.question_type == QuestionType.PROFILE,
+            )
+        )
+        rows = (await self.session.execute(stmt)).all()
+        signals: dict[str, str] = {}
+        for snapshot, response in rows:
+            response_data = response.response_data or {}
+            value = response_data.get("value") or response_data.get("selected_option")
+            if not value:
+                continue
+            key = (snapshot.metadata_ or {}).get("dimension") or str(snapshot.sequence)
+            signals[str(key)] = str(value)
+        return signals
 
     async def _extract_essay_keywords(self, assessment_id: str) -> list[str]:
         """Extract keywords from essay responses/scores."""
-        # For now, return empty - can be enhanced with NLP later
-        return []
+        stmt = (
+            select(AssessmentQuestionSnapshot, AssessmentResponse)
+            .join(
+                AssessmentResponse,
+                AssessmentResponse.question_snapshot_id == AssessmentQuestionSnapshot.id,
+            )
+            .where(
+                AssessmentQuestionSnapshot.assessment_id == assessment_id,
+                AssessmentQuestionSnapshot.question_type == QuestionType.ESSAY,
+            )
+        )
+        rows = (await self.session.execute(stmt)).all()
+        tokens: list[str] = []
+        for _snapshot, response in rows:
+            essay_text = response.response_data.get("answer", "")
+            tokens.extend(self._tokenize(essay_text))
+        counts = Counter(tokens)
+        return [token for token, _count in counts.most_common(5)]
+
+    async def _extract_missed_topics(self, assessment_id: str) -> list[str]:
+        """Extract topics from questions that scored poorly."""
+        stmt = (
+            select(Score, AssessmentQuestionSnapshot)
+            .join(
+                AssessmentQuestionSnapshot,
+                AssessmentQuestionSnapshot.id == Score.question_snapshot_id,
+            )
+            .where(Score.assessment_id == assessment_id)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        missed: list[str] = []
+        for score, snapshot in rows:
+            if score.max_score <= 0:
+                continue
+            ratio = score.score / score.max_score
+            if ratio >= 0.6:
+                continue
+            dimension = (snapshot.metadata_ or {}).get("dimension")
+            if dimension:
+                missed.append(str(dimension))
+        return missed
 
     async def _persist_recommendation_items(
         self,

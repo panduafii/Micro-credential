@@ -375,24 +375,25 @@ class SubmissionService:
         - Check if selected_option matches correct_answer in metadata
         - Full points for correct, zero for incorrect/missing
         """
+        max_score = self.THEORETICAL_MAX_SCORE * (snapshot.weight or 1.0)
+        correct_answer = snapshot.correct_answer or (snapshot.metadata_ or {}).get("correct_answer")
+
         if response is None:
             return {
                 "score": 0.0,
-                "max_score": self.THEORETICAL_MAX_SCORE,
+                "max_score": max_score,
                 "explanation": "Tidak ada jawaban",
                 "rules_applied": {"rule": "no_response"},
             }
 
-        metadata = snapshot.metadata_ or {}
-        correct_answer = metadata.get("correct_answer")
         response_data = response.response_data or {}
         selected_option = response_data.get("selected_option")
 
         if correct_answer is None:
             # No correct answer defined - give full score (degraded)
             return {
-                "score": self.THEORETICAL_MAX_SCORE,
-                "max_score": self.THEORETICAL_MAX_SCORE,
+                "score": max_score,
+                "max_score": max_score,
                 "explanation": "Tidak ada jawaban benar yang didefinisikan",
                 "rules_applied": {"rule": "no_correct_answer_defined", "degraded": True},
             }
@@ -400,8 +401,8 @@ class SubmissionService:
         is_correct = str(selected_option).lower() == str(correct_answer).lower()
 
         return {
-            "score": self.THEORETICAL_MAX_SCORE if is_correct else 0.0,
-            "max_score": self.THEORETICAL_MAX_SCORE,
+            "score": max_score if is_correct else 0.0,
+            "max_score": max_score,
             "explanation": "Jawaban benar" if is_correct else "Jawaban salah",
             "rules_applied": {
                 "rule": "exact_match",
@@ -423,10 +424,11 @@ class SubmissionService:
         - Profile questions capture preferences/self-assessment
         - Score based on completeness of response
         """
+        max_score = self.PROFILE_MAX_SCORE * (snapshot.weight or 1.0)
         if response is None:
             return {
                 "score": 0.0,
-                "max_score": self.PROFILE_MAX_SCORE,
+                "max_score": max_score,
                 "explanation": "Tidak ada jawaban",
                 "rules_applied": {"rule": "no_response"},
             }
@@ -436,17 +438,62 @@ class SubmissionService:
         # Profile scoring: check if response has meaningful content
         has_value = bool(response_data.get("value") or response_data.get("selected_option"))
 
+        expected_values = snapshot.expected_values or (snapshot.metadata_ or {}).get(
+            "accepted_values"
+        )
+
+        if has_value and expected_values:
+            value = (
+                response_data.get("value") or response_data.get("selected_option") or ""
+            ).lower()
+            accepted = (
+                expected_values.get("accepted_values")
+                if isinstance(expected_values, dict)
+                else expected_values
+            )
+            match = False
+            if isinstance(accepted, list):
+                match = value in [str(v).lower() for v in accepted]
+            elif isinstance(accepted, str):
+                match = value == accepted.lower()
+            else:
+                match = True  # unknown structure, fallback to completeness
+
+            if match:
+                return {
+                    "score": max_score,
+                    "max_score": max_score,
+                    "explanation": "Nilai sesuai kriteria",
+                    "rules_applied": {
+                        "rule": "expected_values_match",
+                        "accepted": accepted,
+                        "value": value,
+                        "match": match,
+                    },
+                }
+            return {
+                "score": max_score,
+                "max_score": max_score,
+                "explanation": "Profil terisi, tetapi tidak sesuai kriteria",
+                "rules_applied": {
+                    "rule": "expected_values_mismatch",
+                    "accepted": accepted,
+                    "value": value,
+                    "match": match,
+                },
+            }
+
         if has_value:
             return {
-                "score": self.PROFILE_MAX_SCORE,
-                "max_score": self.PROFILE_MAX_SCORE,
+                "score": max_score,
+                "max_score": max_score,
                 "explanation": "Profil terisi lengkap",
                 "rules_applied": {"rule": "completeness_check", "has_value": True},
             }
 
         return {
             "score": 0.0,
-            "max_score": self.PROFILE_MAX_SCORE,
+            "max_score": max_score,
             "explanation": "Profil tidak lengkap",
             "rules_applied": {"rule": "completeness_check", "has_value": False},
         }

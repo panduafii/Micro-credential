@@ -343,7 +343,7 @@ class TestGPTEssayScoringService:
         assert score.rubric_scores["clarity"] == 95
         assert score.rubric_scores["completeness"] == 85
         assert score.rubric_scores["technical"] == 78
-        assert score.score == 87.6
+        assert score.score == 88.3
         assert score.explanation == "Excellent understanding demonstrated."
 
     @pytest.mark.asyncio
@@ -621,7 +621,7 @@ class TestGPTResponseParsing:
 
         assert result.status == "success"
         assert len(result.essay_scores) == 1
-        assert result.essay_scores[0].score == 80
+        assert result.essay_scores[0].score == 80.75
 
     @pytest.mark.asyncio
     async def test_clamp_scores_to_valid_range(
@@ -666,4 +666,4 @@ class TestGPTResponseParsing:
         score = result.essay_scores[0]
         assert score.rubric_scores["relevance"] == 100  # Clamped to max
         assert score.rubric_scores["depth"] == 0  # Clamped to min
-        assert score.score == 100  # Clamped to max
+        assert score.score == 68.5  # Weighted + clamped

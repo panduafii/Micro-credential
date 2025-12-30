@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 import structlog
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from src.domain.services.summary_formatter import format_assessment_summary
 from src.infrastructure.db.models import (
     Assessment,
     AssessmentStatus,
@@ -130,51 +131,16 @@ class FusionService:
         degraded: bool,
     ) -> str:
         """Generate narrative summary from scores and recommendations."""
-        lines = []
-
-        # Overall assessment
-        if breakdown.overall_pct >= 80:
-            lines.append(
-                f"Excellent performance! You demonstrated strong aptitude for the "
-                f"{role_title} role with an overall score of {breakdown.overall_pct}%."
-            )
-        elif breakdown.overall_pct >= 60:
-            lines.append(
-                f"Good job! Your assessment for the {role_title} role shows solid "
-                f"foundations with room for growth. Overall score: {breakdown.overall_pct}%."
-            )
-        else:
-            lines.append(
-                f"Thank you for completing the {role_title} assessment. Your overall "
-                f"score of {breakdown.overall_pct}% indicates areas for development."
-            )
-
-        # Score breakdown
-        lines.append("")
-        lines.append("**Score Breakdown:**")
-        lines.append(f"- Technical Knowledge: {breakdown.theoretical_pct}%")
-        lines.append(f"- Profile Alignment: {breakdown.profile_pct}%")
-        if breakdown.essay_max > 0:
-            lines.append(f"- Essay Quality: {breakdown.essay_pct}%")
-
-        # Recommendations
-        if recommendations:
-            lines.append("")
-            lines.append("**Recommended Courses:**")
-            for i, rec in enumerate(recommendations[:3], start=1):
-                lines.append(f"{i}. {rec.course_title}")
-                if rec.match_reason:
-                    lines.append(f"   _{rec.match_reason}_")
-
-        # Degraded notice
-        if degraded:
-            lines.append("")
-            lines.append(
-                "_Note: Some recommendations may be limited due to temporary "
-                "service constraints._"
-            )
-
-        return "\n".join(lines)
+        return format_assessment_summary(
+            role_title=role_title,
+            overall_pct=breakdown.overall_pct,
+            theoretical_pct=breakdown.theoretical_pct,
+            profile_pct=breakdown.profile_pct,
+            essay_pct=breakdown.essay_pct,
+            has_essay=breakdown.essay_max > 0,
+            recommendations=recommendations,
+            degraded=degraded,
+        )
 
     async def process_fusion_job(self, assessment_id: str) -> FusionResult:
         """

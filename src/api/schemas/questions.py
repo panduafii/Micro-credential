@@ -5,17 +5,28 @@ Question Bank Schemas for CRUD and Versioning
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 from src.infrastructure.db.models import QuestionType
 
 
 class QuestionBase(BaseModel):
     """Base schema for question fields"""
 
+    model_config = ConfigDict(protected_namespaces=())
+
     role_slug: str = Field(..., description="Role/track slug this question belongs to")
     sequence: int = Field(..., ge=1, description="Question order in assessment")
     question_type: QuestionType = Field(..., description="Type of question")
     prompt: str = Field(..., min_length=10, description="Question text")
+    difficulty: str | None = Field(None, description="Difficulty level (easy/medium/hard)")
+    weight: float | None = Field(None, ge=0.1, description="Score weight multiplier")
+    correct_answer: str | None = Field(None, description="Correct answer for rule-based scoring")
+    answer_key: str | None = Field(None, description="Reference answer for essays")
+    model_answer: str | None = Field(None, description="Model answer for essays")
+    rubric: dict[str, Any] | None = Field(None, description="Rubric weights and rules")
+    expected_values: dict[str, Any] | None = Field(
+        None, description="Accepted values for profile questions"
+    )
     metadata_: Any = Field(
         default=None,
         alias="metadata",
@@ -64,9 +75,18 @@ class QuestionCreate(QuestionBase):
 class QuestionUpdate(BaseModel):
     """Schema for updating an existing question (all fields optional)"""
 
+    model_config = ConfigDict(protected_namespaces=())
+
     sequence: int | None = Field(None, ge=1)
     question_type: QuestionType | None = None
     prompt: str | None = Field(None, min_length=10)
+    difficulty: str | None = None
+    weight: float | None = Field(None, ge=0.1)
+    correct_answer: str | None = None
+    answer_key: str | None = None
+    model_answer: str | None = None
+    rubric: dict[str, Any] | None = None
+    expected_values: dict[str, Any] | None = None
     metadata_: dict[str, Any] | None = Field(None, alias="metadata")
 
 

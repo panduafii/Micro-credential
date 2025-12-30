@@ -27,6 +27,13 @@ def _serialize_question(question: QuestionTemplate) -> dict[str, Any]:
         "sequence": question.sequence,
         "question_type": question.question_type,
         "prompt": question.prompt,
+        "difficulty": question.difficulty,
+        "weight": question.weight,
+        "correct_answer": question.correct_answer,
+        "answer_key": question.answer_key,
+        "model_answer": question.model_answer,
+        "rubric": question.rubric,
+        "expected_values": question.expected_values,
         "metadata": metadata,
         "version": question.version,
         "previous_version_id": question.previous_version_id,
@@ -106,6 +113,13 @@ async def create_question(
         question_type=question_data.question_type,
         prompt=question_data.prompt,
         metadata_=question_data.metadata_,
+        difficulty=question_data.difficulty,
+        weight=question_data.weight or 1.0,
+        correct_answer=question_data.correct_answer,
+        answer_key=question_data.answer_key,
+        model_answer=question_data.model_answer,
+        rubric=question_data.rubric,
+        expected_values=question_data.expected_values,
         version=1,
         is_active=True,
     )
@@ -163,6 +177,33 @@ async def update_question(
             question_data.metadata_
             if question_data.metadata_ is not None
             else old_question.metadata_
+        ),
+        difficulty=(
+            question_data.difficulty
+            if question_data.difficulty is not None
+            else old_question.difficulty
+        ),
+        weight=question_data.weight if question_data.weight is not None else old_question.weight,
+        correct_answer=(
+            question_data.correct_answer
+            if question_data.correct_answer is not None
+            else old_question.correct_answer
+        ),
+        answer_key=(
+            question_data.answer_key
+            if question_data.answer_key is not None
+            else old_question.answer_key
+        ),
+        model_answer=(
+            question_data.model_answer
+            if question_data.model_answer is not None
+            else old_question.model_answer
+        ),
+        rubric=(question_data.rubric if question_data.rubric is not None else old_question.rubric),
+        expected_values=(
+            question_data.expected_values
+            if question_data.expected_values is not None
+            else old_question.expected_values
         ),
         version=old_question.version + 1,
         previous_version_id=old_question.id,

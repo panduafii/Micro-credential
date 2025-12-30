@@ -144,6 +144,13 @@ class QuestionTemplate(Base):
     )
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSON)
+    difficulty: Mapped[str | None] = mapped_column(String(32), default="medium")
+    weight: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    correct_answer: Mapped[str | None] = mapped_column(String(255))
+    answer_key: Mapped[str | None] = mapped_column(Text)
+    model_answer: Mapped[str | None] = mapped_column(Text)
+    rubric: Mapped[dict | None] = mapped_column(JSON)
+    expected_values: Mapped[dict | None] = mapped_column(JSON)
 
     # Versioning and soft delete
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -232,6 +239,13 @@ class AssessmentQuestionSnapshot(Base):
     )
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSON)
+    difficulty: Mapped[str | None] = mapped_column(String(32), default="medium")
+    weight: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    correct_answer: Mapped[str | None] = mapped_column(String(255))
+    answer_key: Mapped[str | None] = mapped_column(Text)
+    model_answer: Mapped[str | None] = mapped_column(Text)
+    rubric: Mapped[dict | None] = mapped_column(JSON)
+    expected_values: Mapped[dict | None] = mapped_column(JSON)
 
     assessment: Mapped[Assessment] = relationship(back_populates="question_snapshots")
     template: Mapped[QuestionTemplate | None] = relationship()

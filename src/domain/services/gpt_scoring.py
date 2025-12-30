@@ -43,6 +43,54 @@ ESSAY_RUBRIC_DIMENSIONS = [
     "technical",  # Technical accuracy (if applicable)
 ]
 
+DEFAULT_RUBRIC = {
+    "dimensions": {
+        "relevance": 0.2,
+        "depth": 0.2,
+        "clarity": 0.2,
+        "completeness": 0.2,
+        "technical": 0.2,
+    },
+    "floor": 0,
+    "ceiling": 95,
+}
+
+DIFFICULTY_RUBRICS: dict[str, dict[str, object]] = {
+    "easy": {
+        "dimensions": {
+            "relevance": 0.3,
+            "clarity": 0.25,
+            "completeness": 0.25,
+            "depth": 0.1,
+            "technical": 0.1,
+        },
+        "floor": 10,
+        "ceiling": 95,
+    },
+    "medium": {
+        "dimensions": {
+            "relevance": 0.25,
+            "clarity": 0.2,
+            "completeness": 0.2,
+            "depth": 0.2,
+            "technical": 0.15,
+        },
+        "floor": 5,
+        "ceiling": 95,
+    },
+    "hard": {
+        "dimensions": {
+            "relevance": 0.2,
+            "clarity": 0.15,
+            "completeness": 0.15,
+            "depth": 0.25,
+            "technical": 0.25,
+        },
+        "floor": 0,
+        "ceiling": 95,
+    },
+}
+
 # System prompt for deterministic essay scoring
 ESSAY_SCORING_SYSTEM_PROMPT = """You are an expert essay evaluator for a \
 micro-credential assessment platform.
@@ -81,6 +129,8 @@ class EssayScoreResult:
     score: float
     max_score: float
     rubric_scores: dict[str, float]
+    rubric_weights: dict[str, float]
+    normalized_score: float
     explanation: str
     model: str
     latency_ms: int
@@ -272,13 +322,17 @@ class GPTEssayScoringService:
         """Score a single essay using GPT."""
         # Build user prompt
         essay_text = response.response_data.get("answer", "")
+        max_score = self.MAX_SCORE * (snapshot.weight or 1.0)
+        rubric = self._resolve_rubric(snapshot)
         if not essay_text:
             # No answer provided - give zero score
             return EssayScoreResult(
                 question_snapshot_id=snapshot.id,
                 score=0.0,
-                max_score=self.MAX_SCORE,
+                max_score=max_score,
                 rubric_scores={dim: 0.0 for dim in ESSAY_RUBRIC_DIMENSIONS},
+                rubric_weights=rubric["dimensions"],
+                normalized_score=0.0,
                 explanation="Tidak ada jawaban yang diberikan",
                 model="rule",
                 latency_ms=0,
@@ -286,12 +340,22 @@ class GPTEssayScoringService:
                 completion_tokens=0,
             )
 
+        answer_key = snapshot.model_answer or snapshot.answer_key or ""
+        rubric_weights = rubric["dimensions"]
+        rubric_lines = [f"- {dim}: weight {weight:.2f}" for dim, weight in rubric_weights.items()]
+        reference_section = (
+            f"\nReference answer (for rubric alignment):\n{answer_key}\n" if answer_key else ""
+        )
+        rubric_section = (
+            "\nRubric weights:\n" + "\n".join(rubric_lines) + "\n" if rubric_weights else ""
+        )
+
         user_prompt = f"""Question: {snapshot.prompt}
 
 Student's Essay Answer:
 {essay_text}
 
-Please score this essay according to the rubric dimensions."""
+Please score this essay according to the rubric dimensions.{reference_section}{rubric_section}"""
 
         messages = [
             {"role": "system", "content": ESSAY_SCORING_SYSTEM_PROMPT},
@@ -314,17 +378,59 @@ Please score this essay according to the rubric dimensions."""
                 question_id=snapshot.id,
             ) from e
 
+        weighted_total = self._apply_rubric_weights(parsed["scores"], rubric)
+        normalized_total = self._apply_floor_ceiling(weighted_total, rubric)
+        scaled_total = normalized_total * (snapshot.weight or 1.0)
+
         return EssayScoreResult(
             question_snapshot_id=snapshot.id,
-            score=parsed["total_score"],
-            max_score=self.MAX_SCORE,
+            score=scaled_total,
+            max_score=max_score,
             rubric_scores=parsed["scores"],
+            rubric_weights=rubric["dimensions"],
+            normalized_score=normalized_total,
             explanation=parsed["explanation"],
             model=gpt_response.model,
             latency_ms=gpt_response.latency_ms,
             prompt_tokens=gpt_response.prompt_tokens,
             completion_tokens=gpt_response.completion_tokens,
         )
+
+    def _resolve_rubric(self, snapshot: AssessmentQuestionSnapshot) -> dict[str, Any]:
+        rubric = snapshot.rubric or {}
+        difficulty = (snapshot.difficulty or "medium").lower()
+        base = DIFFICULTY_RUBRICS.get(difficulty, DEFAULT_RUBRIC)
+        if not rubric:
+            rubric = base
+        rubric = {
+            "dimensions": rubric.get("dimensions", base["dimensions"]),
+            "floor": rubric.get("floor", base["floor"]),
+            "ceiling": rubric.get("ceiling", base["ceiling"]),
+        }
+
+        weights = {}
+        for dim in ESSAY_RUBRIC_DIMENSIONS:
+            weights[dim] = float(rubric["dimensions"].get(dim, 0.0))
+        total = sum(weights.values())
+        if total <= 0:
+            weights = {dim: 1.0 / len(ESSAY_RUBRIC_DIMENSIONS) for dim in ESSAY_RUBRIC_DIMENSIONS}
+        else:
+            weights = {dim: weight / total for dim, weight in weights.items()}
+        rubric["dimensions"] = weights
+        return rubric
+
+    @staticmethod
+    def _apply_rubric_weights(scores: dict[str, float], rubric: dict[str, Any]) -> float:
+        total = 0.0
+        for dim, weight in rubric["dimensions"].items():
+            total += scores.get(dim, 0.0) * weight
+        return total
+
+    @staticmethod
+    def _apply_floor_ceiling(score: float, rubric: dict[str, Any]) -> float:
+        floor = float(rubric.get("floor", 0))
+        ceiling = float(rubric.get("ceiling", 100))
+        return max(floor, min(ceiling, score))
 
     def _parse_gpt_response(self, content: str) -> dict[str, Any]:
         """Parse GPT response JSON."""
@@ -373,7 +479,11 @@ Please score this essay according to the rubric dimensions."""
             max_score=result.max_score,
             explanation=result.explanation,
             scoring_method="gpt",
-            rules_applied={"rubric_scores": result.rubric_scores},
+            rules_applied={
+                "rubric_scores": result.rubric_scores,
+                "rubric_weights": result.rubric_weights,
+                "normalized_score": result.normalized_score,
+            },
             model_info={
                 "model": result.model,
                 "latency_ms": result.latency_ms,

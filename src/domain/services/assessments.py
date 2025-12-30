@@ -141,13 +141,29 @@ class AssessmentService:
         await self.session.flush()
 
         for template in selected_templates:
+            metadata = template.metadata_ or {}
+            if template.expected_values and "accepted_values" not in metadata:
+                metadata = {
+                    **metadata,
+                    "accepted_values": template.expected_values.get(
+                        "accepted_values", template.expected_values
+                    ),
+                }
+
             snapshot = AssessmentQuestionSnapshot(
                 assessment_id=assessment.id,
                 question_template_id=template.id,
                 sequence=template.sequence,
                 question_type=template.question_type,
                 prompt=template.prompt,
-                metadata=template.metadata_ or {},
+                metadata=metadata,
+                difficulty=template.difficulty,
+                weight=template.weight,
+                correct_answer=template.correct_answer,
+                answer_key=template.answer_key,
+                model_answer=template.model_answer,
+                rubric=template.rubric,
+                expected_values=template.expected_values,
             )
             self.session.add(snapshot)
 

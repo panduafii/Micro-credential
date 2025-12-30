@@ -29,12 +29,20 @@ def build_responses_payload(
             data.update(override)
         else:
             qtype = question["question_type"]
+            sequence = question["sequence"]
             if qtype == "theoretical":
                 data["selected_option"] = "A"
             elif qtype == "essay":
-                data["answer_text"] = f"Sample essay response {question["sequence"]}"
+                data["answer_text"] = f"Sample essay response {sequence}"
             else:  # profile
-                data["value"] = f"Sample profile answer {question["sequence"]}"
+                accepted = None
+                metadata = question.get("metadata") or {}
+                if isinstance(metadata, dict):
+                    accepted = metadata.get("accepted_values")
+                if isinstance(accepted, list) and accepted:
+                    data["value"] = str(accepted[0])
+                else:
+                    data["value"] = f"Sample profile answer {sequence}"
         responses.append(data)
 
     return {"responses": responses}
