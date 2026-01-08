@@ -32,8 +32,10 @@ async def list_tracks(session: AsyncSession = Depends(get_db_session)) -> Tracks
     )
     roles = (await session.execute(role_stmt)).scalars().all()
 
-    count_stmt = select(QuestionTemplate.role_slug, func.count(QuestionTemplate.id)).group_by(
-        QuestionTemplate.role_slug
+    count_stmt = (
+        select(QuestionTemplate.role_slug, func.count(QuestionTemplate.id))
+        .where(QuestionTemplate.is_active == True)  # noqa: E712
+        .group_by(QuestionTemplate.role_slug)
     )
     count_pairs = (await session.execute(count_stmt)).all()
     question_count_map = {slug: count for slug, count in count_pairs}
