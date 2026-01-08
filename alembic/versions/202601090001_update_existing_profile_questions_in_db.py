@@ -27,8 +27,8 @@ def upgrade() -> None:
         SET
             prompt = 'Teknologi/tools apa yang ingin Anda pelajari lebih dalam? '
                      '(Sebutkan 2-3, misal: Docker, AWS, GraphQL)',
-            metadata_ = jsonb_set(
-                COALESCE(metadata_, '{}'::jsonb),
+            metadata = jsonb_set(
+                COALESCE(metadata, '{}'::jsonb),
                 '{dimension}',
                 '"tech-preferences"'
             ),
@@ -50,8 +50,8 @@ def upgrade() -> None:
         UPDATE question_templates
         SET
             prompt = 'Preferensi durasi course yang Anda inginkan?',
-            metadata_ = jsonb_set(
-                COALESCE(metadata_, '{}'::jsonb),
+            metadata = jsonb_set(
+                COALESCE(metadata, '{}'::jsonb),
                 '{dimension}',
                 '"content-duration"'
             ),
@@ -68,8 +68,8 @@ def upgrade() -> None:
         UPDATE question_templates
         SET
             prompt = 'Apakah Anda tertarik dengan course berbayar atau gratis?',
-            metadata_ = jsonb_set(
-                COALESCE(metadata_, '{}'::jsonb),
+            metadata = jsonb_set(
+                COALESCE(metadata, '{}'::jsonb),
                 '{dimension}',
                 '"payment-preference"'
             ),
@@ -89,8 +89,8 @@ def downgrade() -> None:
         UPDATE question_templates
         SET
             prompt = 'Framework dan bahasa pemrograman apa yang paling sering Anda gunakan?',
-            metadata_ = jsonb_set(
-                COALESCE(metadata_, '{}'::jsonb),
+            metadata = jsonb_set(
+                COALESCE(metadata, '{}'::jsonb),
                 '{dimension}',
                 '"tech-stack"'
             ),
@@ -108,8 +108,8 @@ def downgrade() -> None:
         SET
             prompt = 'Apakah Anda pernah deploy aplikasi ke production? '
                      || 'Jelaskan platform yang digunakan.',
-            metadata_ = jsonb_set(
-                COALESCE(metadata_, '{}'::jsonb),
+            metadata = jsonb_set(
+                COALESCE(metadata, '{}'::jsonb),
                 '{dimension}',
                 '"deployment"'
             ),
@@ -127,8 +127,8 @@ def downgrade() -> None:
         SET
             prompt = 'Ceritakan tantangan teknis terbesar yang pernah Anda hadapi '
                      || 'dan bagaimana solusinya.',
-            metadata_ = jsonb_set(
-                COALESCE(metadata_, '{}'::jsonb),
+            metadata = jsonb_set(
+                COALESCE(metadata, '{}'::jsonb),
                 '{dimension}',
                 '"problem-solving"'
             ),
