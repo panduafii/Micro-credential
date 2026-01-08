@@ -30,8 +30,8 @@ DEFAULT_QUESTION_MIX: dict[QuestionType, int] = {
     QuestionType.PROFILE: 4,
 }
 
-# Assessment expiry duration (24 hours by default)
-ASSESSMENT_EXPIRY_HOURS = 24
+# Assessment expiry duration (15 minutes)
+ASSESSMENT_EXPIRY_MINUTES = 15
 
 
 class RoleNotFoundError(Exception):
@@ -131,8 +131,8 @@ class AssessmentService:
         # Select questions by type according to mix
         selected_templates = self._select_questions_by_mix(templates, question_mix)
 
-        # Calculate expiry time
-        expires_at = datetime.now(UTC) + timedelta(hours=ASSESSMENT_EXPIRY_HOURS)
+        # Calculate expiry time (15 minutes from now)
+        expires_at = datetime.now(UTC) + timedelta(minutes=ASSESSMENT_EXPIRY_MINUTES)
 
         assessment = Assessment(
             owner_id=user_id,
