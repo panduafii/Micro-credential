@@ -39,18 +39,18 @@ def format_assessment_summary(
     lines.append("")
 
     # Detailed score breakdown with insights
-    lines.append("**📊 Score Breakdown & Insights**")
+    lines.append("**Score Breakdown & Insights**")
     lines.append("")
 
     # Technical Knowledge analysis
     if theoretical_pct >= 80:
-        tech_insight = "Strong grasp of core concepts! You're ready to tackle real-world problems."
+        tech_insight = "Strong grasp of core concepts. You are ready to tackle real-world problems."
     elif theoretical_pct >= 60:
         tech_insight = "Good foundation, but some concepts need reinforcement."
     else:
         tech_insight = "Focus on strengthening fundamental concepts through practice."
-    lines.append(f"**Technical Knowledge:** {theoretical_pct}%")
-    lines.append(f"  → {tech_insight}")
+    lines.append(f"• **Technical Knowledge:** {theoretical_pct}%")
+    lines.append(f"  {tech_insight}")
     lines.append("")
 
     # Profile alignment analysis
@@ -60,8 +60,8 @@ def format_assessment_summary(
         profile_insight = "You have relevant experience, with room to deepen expertise."
     else:
         profile_insight = "Building more hands-on experience will strengthen your profile."
-    lines.append(f"**Profile Alignment:** {profile_pct}%")
-    lines.append(f"  → {profile_insight}")
+    lines.append(f"• **Profile Alignment:** {profile_pct}%")
+    lines.append(f"  {profile_insight}")
     lines.append("")
 
     # Essay quality analysis (if applicable)
@@ -74,25 +74,24 @@ def format_assessment_summary(
             essay_insight = (
                 "Work on articulating technical concepts more clearly and comprehensively."
             )
-        lines.append(f"**Essay Quality:** {essay_pct}%")
-        lines.append(f"  → {essay_insight}")
+        lines.append(f"• **Essay Quality:** {essay_pct}%")
+        lines.append(f"  {essay_insight}")
         lines.append("")
 
     # Learning path recommendations
     recs = list(recommendations)
     if recs:
         lines.append("")
-        lines.append("**🎯 Recommended Learning Path**")
+        lines.append("**Recommended Learning Path**")
         lines.append("")
-        lines.append("Based on your results, these courses will help you level up your skills:")
+        lines.append("Based on your results, these courses will help you develop your skills:")
         lines.append("")
         for idx, rec in enumerate(recs[:3], start=1):
-            lines.append(f"**{idx}. {rec.course_title}**")
+            lines.append(f"{idx}. **{rec.course_title}**")
             if rec.match_reason:
-                lines.append(f"   💡 Why this course: {rec.match_reason}")
+                lines.append(f"   • {rec.match_reason}")
             # Add relevance indicator
-            relevance_stars = "⭐" * min(int(rec.relevance_score * 5), 5)
-            lines.append(f"   Relevance: {relevance_stars} ({rec.relevance_score:.2f})")
+            lines.append(f"   • Relevance Score: {rec.relevance_score:.2f}/1.0")
             lines.append("")
 
     if degraded:
