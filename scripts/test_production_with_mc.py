@@ -61,10 +61,10 @@ def test_assessment_flow() -> None:
 
     # Display questions with options
     for q in questions:
-        print(f"\n   Q{q['sequence']} ({q['question_type']}): {q['prompt'][:50]}...")
+        print(f"\n   Q{q["sequence"]} ({q["question_type"]}): {q["prompt"][:50]}...")
         if q.get("options"):
             for opt in q["options"]:
-                print(f"      {opt['id']}. {opt['text'][:60]}...")
+                print(f"      {opt["id"]}. {opt["text"][:60]}...")
 
     # 3. Prepare responses
     responses = []
@@ -101,7 +101,7 @@ def test_assessment_flow() -> None:
     )
     resp.raise_for_status()
     submit_data = resp.json()
-    print(f"   ✅ Submitted! Jobs: {submit_data.get('jobs_queued', [])}")
+    print(f"   ✅ Submitted! Jobs: {submit_data.get("jobs_queued", [])}")
 
     # 5. Poll status
     print("\n4️⃣ Polling status...")
@@ -120,12 +120,11 @@ def test_assessment_flow() -> None:
         stages = status_data.get("stages", [])
         if isinstance(stages, list):
             stage_status = " | ".join([
-                f"{s.get('name', 'unknown')}:{s.get('status', 'unknown')}" for s in stages
+                f"{s.get("name", "unknown")}:{s.get("status", "unknown")}" for s in stages
             ])
         else:
             stage_status = " | ".join([
-                f"{k.split('_')[0]}:{v.get('status', 'unknown')}"
-                for k, v in stages.items()
+                f"{k.split("_")[0]}:{v.get("status", "unknown")}" for k, v in stages.items()
             ])
 
         print(f"   [{i + 1}] {progress:.0f}% | {stage_status}")
@@ -145,8 +144,8 @@ def test_assessment_flow() -> None:
     result = resp.json()
 
     print("\n📊 RESULTS:")
-    print(f"   Status: {result['status']}")
-    print(f"   Summary: {result.get('summary', 'N/A')[:100]}...")
+    print(f"   Status: {result["status"]}")
+    print(f"   Summary: {result.get("summary", "N/A")[:100]}...")
 
     breakdown = result.get("score_breakdown", {})
     print("\n   Score Breakdown:")
@@ -157,12 +156,12 @@ def test_assessment_flow() -> None:
             max_score = scores.get("max", 0)
             print(f"   - {category.title()}: {score:.1f}/{max_score} ({pct:.1f}%)")
 
-    print(f"\n📚 RECOMMENDATIONS ({len(result.get('recommendations', []))}):")
+    print(f"\n📚 RECOMMENDATIONS ({len(result.get("recommendations", []))}):")
     for rec in result.get("recommendations", [])[:3]:
-        print(f"   [{rec['rank']}] {rec['course_title']}")
-        print(f"       URL: {rec['course_url']}")
-        print(f"       Relevance: {rec['relevance_score']:.3f}")
-        print(f"       Match: {rec['match_reason']}")
+        print(f"   [{rec["rank"]}] {rec["course_title"]}")
+        print(f"       URL: {rec["course_url"]}")
+        print(f"       Relevance: {rec["relevance_score"]:.3f}")
+        print(f"       Match: {rec["match_reason"]}")
 
     print("\n✅ Test completed successfully!")
 
