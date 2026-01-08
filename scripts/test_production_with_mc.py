@@ -6,9 +6,10 @@ Usage:
     poetry run python scripts/test_production_with_mc.py
 """
 
-import time
 import random
 import string
+import time
+
 import requests
 
 API_URL = "https://microcred-api.onrender.com"
@@ -43,7 +44,7 @@ def test_assessment_flow() -> None:
     print(f"   ✅ Token: {token[:20]}...")
     
     # 2. Start assessment
-    print(f"\n2️⃣ Starting backend-engineer assessment...")
+    print("\n2️⃣ Starting backend-engineer assessment...")
     resp = requests.post(
         f"{API_URL}/assessments/start",
         json={"role_slug": "backend-engineer"},
@@ -91,7 +92,7 @@ def test_assessment_flow() -> None:
             })
     
     # 4. Submit
-    print(f"\n3️⃣ Submitting responses...")
+    print("\n3️⃣ Submitting responses...")
     resp = requests.post(
         f"{API_URL}/assessments/{assessment_id}/submit",
         json={"responses": responses},
@@ -103,7 +104,7 @@ def test_assessment_flow() -> None:
     print(f"   ✅ Submitted! Jobs: {submit_data.get('jobs_queued', [])}")
     
     # 5. Poll status
-    print(f"\n4️⃣ Polling status...")
+    print("\n4️⃣ Polling status...")
     max_polls = 30
     for i in range(max_polls):
         time.sleep(2)
@@ -125,11 +126,11 @@ def test_assessment_flow() -> None:
         print(f"   [{i+1}] {progress:.0f}% | {stage_status}")
         
         if progress >= 100:
-            print(f"   ✅ Processing completed!")
+            print("   ✅ Processing completed!")
             break
     
     # 6. Get results
-    print(f"\n5️⃣ Fetching results...")
+    print("\n5️⃣ Fetching results...")
     resp = requests.get(
         f"{API_URL}/assessments/{assessment_id}/result",
         headers={"Authorization": f"Bearer {token}"},
@@ -138,12 +139,12 @@ def test_assessment_flow() -> None:
     resp.raise_for_status()
     result = resp.json()
     
-    print(f"\n📊 RESULTS:")
+    print("\n📊 RESULTS:")
     print(f"   Status: {result['status']}")
     print(f"   Summary: {result.get('summary', 'N/A')[:100]}...")
     
     breakdown = result.get('score_breakdown', {})
-    print(f"\n   Score Breakdown:")
+    print("\n   Score Breakdown:")
     for category, scores in breakdown.items():
         if isinstance(scores, dict):
             pct = scores.get('percentage', 0)
@@ -158,7 +159,7 @@ def test_assessment_flow() -> None:
         print(f"       Relevance: {rec['relevance_score']:.3f}")
         print(f"       Match: {rec['match_reason']}")
     
-    print(f"\n✅ Test completed successfully!")
+    print("\n✅ Test completed successfully!")
 
 
 if __name__ == "__main__":
