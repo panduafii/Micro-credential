@@ -380,9 +380,9 @@ class RAGService:
 
             reason_parts = []
             if matched_terms:
-                reason_parts.append(f"Covers {", ".join(matched_terms[:3])}")
+                reason_parts.append("Covers " + ", ".join(matched_terms[:3]))
             if matched_topics:
-                reason_parts.append(f"addresses {", ".join(matched_topics[:2])}")
+                reason_parts.append("addresses " + ", ".join(matched_topics[:2]))
             if rating_quality:
                 reason_parts.append(f"{rating_quality} ({num_reviews} reviews)")
             if "beginner" in level or "all levels" in level:

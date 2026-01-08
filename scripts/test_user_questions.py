@@ -23,8 +23,8 @@ def login(email: str, password: str):
         return None
 
 
-def test_questions(role_slug: str, token: str):
-    """Test questions for a role."""
+def check_questions(role_slug: str, token: str):
+    """Check questions for a role."""
     print(f"\n{"=" * 70}")
     print(f"  {role_slug.upper()}")
     print("=" * 70)
@@ -93,9 +93,9 @@ if __name__ == "__main__":
 
     print("✅ Login successful!")
 
-    # Test both roles
-    test_questions("backend-engineer", token)
-    test_questions("data-analyst", token)
+    # Check both roles
+    check_questions("backend-engineer", token)
+    check_questions("data-analyst", token)
 
     print("\n" + "=" * 70)
     print("  TEST COMPLETE")

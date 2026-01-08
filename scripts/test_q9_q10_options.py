@@ -23,8 +23,8 @@ def login():
         raise Exception("Login failed")
 
 
-def test_role_options(role_slug: str, token: str):
-    """Test Q9 and Q10 options for a role."""
+def check_role_options(role_slug: str, token: str):
+    """Check Q9 and Q10 options for a role."""
     print(f"\n{"=" * 60}")
     print(f"  {role_slug.upper()} - Q9 & Q10 OPTIONS")
     print("=" * 60)
@@ -102,9 +102,9 @@ if __name__ == "__main__":
     token = login()
     print("✅ Token obtained")
 
-    # Test both roles
-    test_role_options("backend-engineer", token)
-    test_role_options("data-analyst", token)
+    # Check both roles
+    check_role_options("backend-engineer", token)
+    check_role_options("data-analyst", token)
 
     print("\n" + "=" * 60)
     print("  TEST COMPLETE")
