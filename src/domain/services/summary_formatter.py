@@ -15,6 +15,7 @@ def format_assessment_summary(
     recommendations: Iterable[RecommendationItem],
     degraded: bool,
     profile_signals: dict | None = None,
+    missed_topics: list[str] | None = None,
 ) -> str:
     """Build a markdown summary for assessment results.
 
@@ -31,9 +32,11 @@ def format_assessment_summary(
             - tech-preferences: What technologies/topics user wants to learn
             - content-duration: Preferred course duration (short/medium/long/any)
             - payment-preference: Payment preference (paid/free/any)
+        missed_topics: List of topics where user scored poorly (weakness areas)
     """
     lines: list[str] = []
     profile_signals = profile_signals or {}
+    missed_topics = missed_topics or []
 
     # Opening headline based on score
     if overall_pct >= 80:
@@ -136,6 +139,19 @@ def format_assessment_summary(
                 f"Fokus pada kursus yang memberikan praktik langsung untuk memperdalam kompetensi."
             )
     else:
+        # User has weak foundation - prioritize missed topics first!
+        missed_topics_text = ""
+        if missed_topics:
+            # Format missed topics for display
+            if len(missed_topics) == 1:
+                missed_topics_text = f"**{missed_topics[0]}**"
+            elif len(missed_topics) == 2:
+                missed_topics_text = f"**{missed_topics[0]}** dan **{missed_topics[1]}**"
+            else:
+                missed_topics_text = (
+                    f"**{", ".join(missed_topics[:-1])}**, dan **{missed_topics[-1]}**"
+                )
+
         if tech_prefs:
             # Check if tech preference matches role or is realistic for beginner
             is_advanced_topic = any(
@@ -143,8 +159,32 @@ def format_assessment_summary(
                 for adv in ["kubernetes", "microservices", "ml", "machine learning", "ai"]
             )
 
-            if is_advanced_topic and theoretical_pct < 60:
-                # User wants advanced topic but has weak foundation
+            if missed_topics and is_advanced_topic and theoretical_pct < 60:
+                # User wants advanced topic but has weak foundation AND missed topics
+                profile_insight = (
+                    f"Berdasarkan hasil tesmu (teori: {theoretical_pct}%, profil: {profile_pct}%), "
+                    f"kamu masih perlu memperkuat beberapa area dasar untuk role {role_title}. "
+                    f"Hasil tesmu menunjukkan kamu perlu memperkuat pemahaman tentang "
+                    f"{missed_topics_text} terlebih dahulu. "
+                    f"Keinginanmu untuk belajar **{tech_prefs}** sangat baik, namun sebaiknya "
+                    f"pelajari dulu {missed_topics_text}, baru kemudian lanjut ke {tech_prefs}. "
+                    f"Dengan preferensi {duration_text} ({payment_text}), "
+                    f"saya merekomendasikan kursus yang menguatkan fondasi dasarmu."
+                )
+            elif missed_topics:
+                # User has missed topics, recommend fixing those first
+                profile_insight = (
+                    f"Berdasarkan skor profilmu ({profile_pct}%) dan tes teori "
+                    f"({theoretical_pct}%), kamu sedang dalam tahap membangun fondasi "
+                    f"sebagai {role_title}. Hasil tesmu menunjukkan kamu perlu "
+                    f"memperkuat pemahaman tentang {missed_topics_text}. "
+                    f"Keinginanmu untuk belajar **{tech_prefs}** adalah langkah yang baik! "
+                    f"Saya merekomendasikan: pertama kuatkan dulu {missed_topics_text}, "
+                    f"lalu lanjut ke {tech_prefs}. Dengan preferensi {duration_text} dan opsi "
+                    f"{payment_text}, pilih kursus yang membangun fondasi kokoh."
+                )
+            elif is_advanced_topic and theoretical_pct < 60:
+                # User wants advanced topic but has weak foundation (no specific missed topics)
                 profile_insight = (
                     f"Berdasarkan hasil tesmu (teori: {theoretical_pct}%, profil: {profile_pct}%), "
                     f"kamu masih dalam tahap membangun fondasi untuk role {role_title}. "
@@ -164,11 +204,21 @@ def format_assessment_summary(
                     f"praktik hands-on untuk membangun fondasi yang kuat."
                 )
         else:
-            profile_insight = (
-                f"Skor profil {profile_pct}% menunjukkan kamu masih di awal perjalanan "
-                f"{role_title}. Mulailah dengan kursus foundational yang memberikan praktik "
-                f"langsung. Bangun portfolio dengan proyek nyata untuk memperkuat pengalaman."
-            )
+            # No tech preferences specified
+            if missed_topics:
+                profile_insight = (
+                    f"Skor profil {profile_pct}% menunjukkan kamu masih di awal perjalanan "
+                    f"{role_title}. Hasil tesmu menunjukkan kamu perlu memperkuat "
+                    f"pemahaman tentang {missed_topics_text}. "
+                    f"Mulailah dengan kursus yang membahas topik tersebut, "
+                    f"lalu bangun portfolio dengan proyek nyata untuk memperkuat pengalaman."
+                )
+            else:
+                profile_insight = (
+                    f"Skor profil {profile_pct}% menunjukkan kamu masih di awal perjalanan "
+                    f"{role_title}. Mulailah dengan kursus foundational yang memberikan praktik "
+                    f"langsung. Bangun portfolio dengan proyek nyata untuk memperkuat pengalaman."
+                )
 
     lines.append(f"• **Profile Alignment:** {profile_pct}%")
     lines.append(f"  {profile_insight}")

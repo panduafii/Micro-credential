@@ -132,6 +132,7 @@ class FusionService:
         recommendations: list[RecommendationItem],
         degraded: bool,
         profile_signals: dict | None = None,
+        missed_topics: list[str] | None = None,
     ) -> str:
         """Generate narrative summary from scores and recommendations."""
         return format_assessment_summary(
@@ -144,13 +145,14 @@ class FusionService:
             recommendations=recommendations,
             degraded=degraded,
             profile_signals=profile_signals,
+            missed_topics=missed_topics,
         )
 
     async def _extract_profile_signals(self, assessment_id: str) -> dict:
         """Extract profile signals from assessment responses.
 
         Returns dict with keys:
-            - tech-preferences: What user wants to learn (Q8)
+            - tech-preferences: What user wants to learn (Q8) - can be custom text
             - content-duration: Preferred duration (Q9)
             - payment-preference: Paid/free preference (Q10)
         """
@@ -169,12 +171,65 @@ class FusionService:
         signals: dict[str, str] = {}
         for snapshot, response in rows:
             response_data = response.response_data or {}
-            value = response_data.get("value") or response_data.get("selected_option")
+            # Try multiple keys to get the value (different FE implementations)
+            value = (
+                response_data.get("value")
+                or response_data.get("selected_option")
+                or response_data.get("answer")
+                or response_data.get("answer_text")
+                or response_data.get("custom_text")
+                or response_data.get("text")
+            )
             if not value:
                 continue
             key = (snapshot.metadata_ or {}).get("dimension") or str(snapshot.sequence)
             signals[str(key)] = str(value)
         return signals
+
+    async def _extract_missed_topics(self, assessment_id: str) -> list[str]:
+        """Extract topics from questions that scored poorly (< 60%)."""
+        stmt = (
+            select(Score, AssessmentQuestionSnapshot)
+            .join(
+                AssessmentQuestionSnapshot,
+                AssessmentQuestionSnapshot.id == Score.question_snapshot_id,
+            )
+            .where(Score.assessment_id == assessment_id)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        missed: list[str] = []
+        for score, snapshot in rows:
+            if score.max_score <= 0:
+                continue
+            ratio = score.score / score.max_score
+            if ratio >= 0.6:
+                continue
+            # Get topic/dimension from metadata
+            dimension = (snapshot.metadata_ or {}).get("dimension")
+            if dimension:
+                missed.append(str(dimension))
+            # Also extract from prompt for more context
+            prompt = snapshot.prompt or ""
+            prompt_lower = prompt.lower()
+            # Extract key topics from prompt
+            topic_keywords = [
+                "api",
+                "rest",
+                "database",
+                "sql",
+                "cache",
+                "security",
+                "testing",
+                "docker",
+                "kubernetes",
+                "microservice",
+                "async",
+                "authentication",
+            ]
+            for kw in topic_keywords:
+                if kw in prompt_lower and kw not in missed:
+                    missed.append(kw)
+        return missed
 
     async def process_fusion_job(self, assessment_id: str) -> FusionResult:
         """
@@ -230,9 +285,14 @@ class FusionService:
         # Extract profile signals for personalization
         profile_signals = await self._extract_profile_signals(assessment_id)
 
-        # Generate summary with personalization
+        # Extract missed topics (areas where user needs improvement)
+        missed_topics = await self._extract_missed_topics(assessment_id)
+
+        # Generate summary with personalization and missed topics
         role_title = assessment.role.name if assessment.role else assessment.role_slug
-        summary = self._generate_summary(role_title, breakdown, items, degraded, profile_signals)
+        summary = self._generate_summary(
+            role_title, breakdown, items, degraded, profile_signals, missed_topics
+        )
 
         # Calculate processing duration
         duration_ms = int((time.time() - start_time) * 1000)

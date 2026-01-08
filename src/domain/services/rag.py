@@ -691,7 +691,16 @@ class RAGService:
         signals: dict[str, str] = {}
         for snapshot, response in rows:
             response_data = response.response_data or {}
-            value = response_data.get("value") or response_data.get("selected_option")
+            # Check multiple possible keys for the response value
+            # Q8 tech-preferences uses allow_custom which may store value differently
+            value = (
+                response_data.get("value")
+                or response_data.get("selected_option")
+                or response_data.get("answer")
+                or response_data.get("answer_text")
+                or response_data.get("custom_text")
+                or response_data.get("text")
+            )
             if not value:
                 continue
             key = (snapshot.metadata_ or {}).get("dimension") or str(snapshot.sequence)
