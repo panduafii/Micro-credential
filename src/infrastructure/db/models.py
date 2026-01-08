@@ -143,7 +143,7 @@ class QuestionTemplate(Base):
         nullable=False,
     )
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
-    # Multiple choice options: [{"id": "A", "text": "Option A"}, {"id": "B", "text": "Option B"}, ...]
+    # Multiple choice options: [{"id": "A", "text": "..."}, ...]
     options: Mapped[list[dict] | None] = mapped_column(JSON)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSON)
     difficulty: Mapped[str | None] = mapped_column(String(32), default="medium")

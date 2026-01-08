@@ -36,7 +36,9 @@ class QuestionBase(BaseModel):
     )
     answer_key: str | None = Field(None, description="Reference answer for essays")
     model_answer: str | None = Field(None, description="Model answer for essays")
-    rubric: dict[str, Any] | None = Field(None, description="Rubric weights and rules for GPT scoring")
+    rubric: dict[str, Any] | None = Field(
+        None, description="Rubric weights and rules for GPT scoring"
+    )
     expected_values: dict[str, Any] | None = Field(
         None, description="Accepted values for profile questions"
     )

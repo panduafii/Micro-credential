@@ -10,6 +10,7 @@ class AssessmentStartRequest(BaseModel):
 
 class AssessmentQuestionOption(BaseModel):
     """Option for multiple choice questions"""
+
     id: str = Field(..., description="Option identifier (A, B, C, D)")
     text: str = Field(..., description="Option text")
 

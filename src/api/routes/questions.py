@@ -108,12 +108,17 @@ async def create_question(
             ),
         )
 
+    # Convert options from pydantic models to dicts
+    options_data = None
+    if question_data.options:
+        options_data = [opt.model_dump() for opt in question_data.options]
+
     new_question = QuestionTemplate(
         role_slug=question_data.role_slug,
         sequence=question_data.sequence,
         question_type=question_data.question_type,
         prompt=question_data.prompt,
-        options=[opt.model_dump() for opt in question_data.options] if question_data.options else None,
+        options=options_data,
         metadata_=question_data.metadata_,
         difficulty=question_data.difficulty,
         weight=question_data.weight or 1.0,
