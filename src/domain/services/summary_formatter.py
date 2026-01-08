@@ -81,27 +81,95 @@ def format_assessment_summary(
     lines.append(f"  {tech_insight}")
     lines.append("")
 
-    # Profile alignment analysis with experience-based guidance
+    # Extract user preferences for personalized profile insight
+    tech_prefs = profile_signals.get("tech-preferences", "")
+    duration_pref = profile_signals.get("content-duration", "any").lower()
+    payment_pref = profile_signals.get("payment-preference", "any").lower()
+
+    # Map duration preference to readable text
+    duration_text_map = {
+        "short": "kursus singkat",
+        "medium": "kursus menengah",
+        "long": "kursus lengkap/komprehensif",
+        "any": "berbagai durasi",
+    }
+    duration_text = duration_text_map.get(duration_pref, "berbagai durasi")
+
+    # Map payment preference to readable text
+    payment_text_map = {
+        "free": "gratis",
+        "paid": "berbayar (premium)",
+        "any": "gratis maupun berbayar",
+    }
+    payment_text = payment_text_map.get(payment_pref, "gratis maupun berbayar")
+
+    # Build personalized profile insight based on scores and preferences
     if profile_pct >= 80:
-        profile_insight = (
-            f"Your experience aligns excellently with {role_title} requirements. "
-            "You have demonstrated hands-on familiarity with relevant tools and practices. "
-            "The courses recommended focus on advancing your existing skills to expert level."
-        )
+        if tech_prefs:
+            profile_insight = (
+                f"Berdasarkan pengalamanmu yang solid dan skor profil **{profile_pct}%**, "
+                f"kamu sudah memiliki fondasi yang kuat untuk role {role_title}. "
+                f"Keinginanmu untuk mempelajari **{tech_prefs}** sangat tepat dan efektif "
+                f"karena sesuai dengan kompetensimu saat ini. "
+                f"Dengan preferensi {duration_text} dan opsi {payment_text}, "
+                f"saya merekomendasikan kursus advanced untuk memperdalam keahlianmu."
+            )
+        else:
+            profile_insight = (
+                f"Pengalamanmu sangat sesuai dengan kebutuhan {role_title}. "
+                f"Skor profil **{profile_pct}%** menunjukkan kesiapan untuk level lanjutan. "
+                f"Fokuskan pembelajaran pada spesialisasi yang lebih mendalam."
+            )
     elif profile_pct >= 60:
-        profile_insight = (
-            "You have relevant experience, with room to deepen expertise. "
-            "Your background shows promise, and with targeted learning in specific areas, "
-            "you can bridge the gap to reach professional proficiency. "
-            "Focus on courses that match your current level."
-        )
+        if tech_prefs:
+            profile_insight = (
+                f"Berdasarkan hasil profilmu ({profile_pct}%), "
+                f"kamu memiliki pengalaman yang cukup namun masih ada ruang untuk berkembang. "
+                f"Keinginanmu untuk belajar **{tech_prefs}** cukup efektif. "
+                f"Dengan preferensi {duration_text} dan opsi {payment_text}, "
+                f"saya merekomendasikan kursus intermediate yang fokus pada praktik hands-on "
+                f"untuk memperkuat skill {tech_prefs}."
+            )
+        else:
+            profile_insight = (
+                f"Skor profil {profile_pct}% menunjukkan pengalaman yang relevan. "
+                f"Fokus pada kursus yang memberikan praktik langsung untuk memperdalam kompetensi."
+            )
     else:
-        profile_insight = (
-            "Building more hands-on experience will strengthen your profile significantly. "
-            "The assessment indicates you may benefit from foundational courses that provide "
-            "practical exposure. Start with beginner to intermediate level content, "
-            "and work on real projects to build your portfolio."
-        )
+        if tech_prefs:
+            # Check if tech preference matches role or is realistic for beginner
+            is_advanced_topic = any(
+                adv in tech_prefs.lower()
+                for adv in ["kubernetes", "microservices", "ml", "machine learning", "ai"]
+            )
+
+            if is_advanced_topic and theoretical_pct < 60:
+                # User wants advanced topic but has weak foundation
+                profile_insight = (
+                    f"Berdasarkan hasil tesmu (teori: {theoretical_pct}%, profil: {profile_pct}%), "
+                    f"kamu masih dalam tahap membangun fondasi untuk role {role_title}. "
+                    f"Keinginanmu untuk belajar **{tech_prefs}** mungkin **kurang efektif** "
+                    f"karena memerlukan pemahaman dasar yang kuat terlebih dahulu. "
+                    f"Saya merekomendasikan kursus fundamental dulu, lalu bertahap menuju "
+                    f"{tech_prefs}. Dengan preferensi {duration_text} ({payment_text}), "
+                    f"pilih kursus beginner-friendly."
+                )
+            else:
+                profile_insight = (
+                    f"Berdasarkan skor profilmu ({profile_pct}%) dan tes teori "
+                    f"({theoretical_pct}%), kamu sedang dalam tahap awal perjalanan "
+                    f"sebagai {role_title}. Keinginanmu untuk belajar **{tech_prefs}** "
+                    f"adalah langkah yang baik. Dengan preferensi {duration_text} dan opsi "
+                    f"{payment_text}, saya merekomendasikan kursus dasar yang memberikan "
+                    f"praktik hands-on untuk membangun fondasi yang kuat."
+                )
+        else:
+            profile_insight = (
+                f"Skor profil {profile_pct}% menunjukkan kamu masih di awal perjalanan "
+                f"{role_title}. Mulailah dengan kursus foundational yang memberikan praktik "
+                f"langsung. Bangun portfolio dengan proyek nyata untuk memperkuat pengalaman."
+            )
+
     lines.append(f"• **Profile Alignment:** {profile_pct}%")
     lines.append(f"  {profile_insight}")
     lines.append("")
