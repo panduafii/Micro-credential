@@ -117,10 +117,15 @@ def test_assessment_flow() -> None:
         status_data = resp.json()
         progress = status_data.get("overall_progress", 0)
 
-        stages = status_data.get("stages", {})
-        stage_status = " | ".join([
-            f"{k.split("_")[0]}:{v.get("status", "unknown")}" for k, v in stages.items()
-        ])
+        stages = status_data.get("stages", [])
+        if isinstance(stages, list):
+            stage_status = " | ".join([
+                f"{s.get("name", "unknown")}:{s.get("status", "unknown")}" for s in stages
+            ])
+        else:
+            stage_status = " | ".join([
+                f"{k.split("_")[0]}:{v.get("status", "unknown")}" for k, v in stages.items()
+            ])
 
         print(f"   [{i + 1}] {progress:.0f}% | {stage_status}")
 
