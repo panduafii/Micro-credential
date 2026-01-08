@@ -20,6 +20,7 @@ class AssessmentQuestion(BaseModel):
     sequence: int
     question_type: str
     prompt: str
+    difficulty: str | None = Field(None, description="Question difficulty: easy, medium, hard")
     options: list[AssessmentQuestionOption] | None = Field(
         None, description="Options for multiple choice questions"
     )

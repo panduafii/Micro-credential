@@ -49,7 +49,8 @@ def create_question(token: str, question: dict[str, Any]) -> dict[str, Any]:
         timeout=30,
     )
     if resp.status_code == 409:
-        print(f"  ⚠️ Question exists: {question["prompt"][:40]}...")
+        prompt_preview = question["prompt"][:40]
+        print(f"  ⚠️ Question exists: {prompt_preview}...")
         return {"exists": True}
     resp.raise_for_status()
     return resp.json()
@@ -67,13 +68,14 @@ def delete_questions_by_track(token: str, role_slug: str) -> None:
     questions = resp.json()
 
     for q in questions:
+        q_id = q["id"]
         del_resp = requests.delete(
-            f"{API_URL}/questions/{q["id"]}",
+            f"{API_URL}/questions/{q_id}",
             headers=headers,
             timeout=30,
         )
         if del_resp.status_code == 204:
-            print(f"  🗑️ Deleted question {q["id"]}")
+            print(f"  🗑️ Deleted question {q_id}")
 
 
 # ============================================================================
@@ -544,7 +546,9 @@ def main() -> None:
     for q in BACKEND_QUESTIONS:
         result = create_question(token, q)
         if "exists" not in result:
-            print(f"  ✅ [{q["difficulty"]}] {q["prompt"][:40]}...")
+            difficulty = q["difficulty"]
+            prompt_preview = q["prompt"][:40]
+            print(f"  ✅ [{difficulty}] {prompt_preview}...")
 
     # Seed Data Analyst questions
     print("\n🗑️ Deleting existing data-analyst questions...")
@@ -554,7 +558,9 @@ def main() -> None:
     for q in DATA_ANALYST_QUESTIONS:
         result = create_question(token, q)
         if "exists" not in result:
-            print(f"  ✅ [{q["difficulty"]}] {q["prompt"][:40]}...")
+            difficulty = q["difficulty"]
+            prompt_preview = q["prompt"][:40]
+            print(f"  ✅ [{difficulty}] {prompt_preview}...")
 
     print("\n🎉 Done! Questions seeded successfully.")
     print("\n📊 Summary per track:")
