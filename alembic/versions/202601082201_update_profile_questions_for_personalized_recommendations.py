@@ -1,7 +1,7 @@
 """update profile questions for personalized recommendations
 
 Revision ID: 202601082201
-Revises: 202601080002
+Revises: 202601082202
 Create Date: 2026-01-08 22:01:00
 
 Updates profile questions Q2-Q4 to capture user preferences for personalization:
@@ -18,7 +18,7 @@ These preferences are used by RAG service to:
 
 # revision identifiers, used by Alembic.
 revision = "202601082201"
-down_revision = "202601080002"
+down_revision = "202601082202"
 branch_labels = None
 depends_on = None
 
