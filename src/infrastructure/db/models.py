@@ -143,12 +143,16 @@ class QuestionTemplate(Base):
         nullable=False,
     )
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    # Multiple choice options: [{"id": "A", "text": "Option A"}, {"id": "B", "text": "Option B"}, ...]
+    options: Mapped[list[dict] | None] = mapped_column(JSON)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSON)
     difficulty: Mapped[str | None] = mapped_column(String(32), default="medium")
     weight: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    # Correct answer for multiple choice (e.g., "A", "B", "C", "D")
     correct_answer: Mapped[str | None] = mapped_column(String(255))
     answer_key: Mapped[str | None] = mapped_column(Text)
     model_answer: Mapped[str | None] = mapped_column(Text)
+    # Rubric for essay scoring with GPT
     rubric: Mapped[dict | None] = mapped_column(JSON)
     expected_values: Mapped[dict | None] = mapped_column(JSON)
 
@@ -238,6 +242,8 @@ class AssessmentQuestionSnapshot(Base):
         nullable=False,
     )
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    # Multiple choice options copied from template
+    options: Mapped[list[dict] | None] = mapped_column(JSON)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSON)
     difficulty: Mapped[str | None] = mapped_column(String(32), default="medium")
     weight: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)

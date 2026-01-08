@@ -8,11 +8,20 @@ class AssessmentStartRequest(BaseModel):
     role_slug: str = Field(..., description="Role/track identifier to start or resume")
 
 
+class AssessmentQuestionOption(BaseModel):
+    """Option for multiple choice questions"""
+    id: str = Field(..., description="Option identifier (A, B, C, D)")
+    text: str = Field(..., description="Option text")
+
+
 class AssessmentQuestion(BaseModel):
     id: str
     sequence: int
     question_type: str
     prompt: str
+    options: list[AssessmentQuestionOption] | None = Field(
+        None, description="Options for multiple choice questions"
+    )
     metadata: dict | None = None
     response: dict | None = None
 

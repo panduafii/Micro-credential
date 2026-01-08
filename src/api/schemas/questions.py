@@ -9,6 +9,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_valid
 from src.infrastructure.db.models import QuestionType
 
 
+class OptionItem(BaseModel):
+    """Single option for multiple choice questions"""
+
+    id: str = Field(..., description="Option identifier (A, B, C, D)")
+    text: str = Field(..., description="Option text")
+
+
 class QuestionBase(BaseModel):
     """Base schema for question fields"""
 
@@ -18,12 +25,18 @@ class QuestionBase(BaseModel):
     sequence: int = Field(..., ge=1, description="Question order in assessment")
     question_type: QuestionType = Field(..., description="Type of question")
     prompt: str = Field(..., min_length=10, description="Question text")
+    # Multiple choice options
+    options: list[OptionItem] | None = Field(
+        None, description="Options for multiple choice (theoretical) questions"
+    )
     difficulty: str | None = Field(None, description="Difficulty level (easy/medium/hard)")
     weight: float | None = Field(None, ge=0.1, description="Score weight multiplier")
-    correct_answer: str | None = Field(None, description="Correct answer for rule-based scoring")
+    correct_answer: str | None = Field(
+        None, description="Correct answer (option ID for multiple choice)"
+    )
     answer_key: str | None = Field(None, description="Reference answer for essays")
     model_answer: str | None = Field(None, description="Model answer for essays")
-    rubric: dict[str, Any] | None = Field(None, description="Rubric weights and rules")
+    rubric: dict[str, Any] | None = Field(None, description="Rubric weights and rules for GPT scoring")
     expected_values: dict[str, Any] | None = Field(
         None, description="Accepted values for profile questions"
     )
@@ -80,6 +93,7 @@ class QuestionUpdate(BaseModel):
     sequence: int | None = Field(None, ge=1)
     question_type: QuestionType | None = None
     prompt: str | None = Field(None, min_length=10)
+    options: list[OptionItem] | None = None
     difficulty: str | None = None
     weight: float | None = Field(None, ge=0.1)
     correct_answer: str | None = None

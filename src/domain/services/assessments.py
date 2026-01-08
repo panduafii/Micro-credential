@@ -48,6 +48,7 @@ class AssessmentQuestionPayload:
     sequence: int
     question_type: str
     prompt: str
+    options: list[dict] | None
     metadata: dict | None
     response: dict | None
 
@@ -156,6 +157,7 @@ class AssessmentService:
                 sequence=template.sequence,
                 question_type=template.question_type,
                 prompt=template.prompt,
+                options=template.options,  # Include multiple choice options
                 metadata=metadata,
                 difficulty=template.difficulty,
                 weight=template.weight,
@@ -229,6 +231,7 @@ class AssessmentService:
                     sequence=snapshot.sequence,
                     question_type=snapshot.question_type.value,
                     prompt=snapshot.prompt,
+                    options=snapshot.options,
                     metadata=snapshot.metadata_ or {},
                     response=response.response_data if response else None,
                 )
