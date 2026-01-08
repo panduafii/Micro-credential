@@ -63,7 +63,7 @@ logger = structlog.get_logger(__name__)
 async def start_assessment(
     payload: AssessmentStartRequest,
     session: AsyncSession = Depends(get_db_session),
-    user: User = Depends(require_roles(["student"])),
+    user: User = Depends(require_roles(["student", "admin"])),
 ) -> AssessmentStartResponse:
     service = AssessmentService(session)
     try:
@@ -88,7 +88,7 @@ async def submit_assessment(
     background_tasks: BackgroundTasks,
     payload: AssessmentSubmitRequest | None = None,
     session: AsyncSession = Depends(get_db_session),
-    user: User = Depends(require_roles(["student"])),
+    user: User = Depends(require_roles(["student", "admin"])),
     idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
 ) -> AssessmentSubmitResponse:
     """
@@ -169,7 +169,7 @@ async def submit_assessment(
 async def get_assessment_status(
     assessment_id: str,
     session: AsyncSession = Depends(get_db_session),
-    user: User = Depends(require_roles(["student"])),
+    user: User = Depends(require_roles(["student", "admin"])),
 ) -> AssessmentStatusResponse:
     """
     Get current status and progress of an assessment (Story 2.3).
@@ -223,7 +223,7 @@ async def register_webhook(
     assessment_id: str,
     payload: WebhookRegisterRequest,
     session: AsyncSession = Depends(get_db_session),
-    user: User = Depends(require_roles(["student"])),
+    user: User = Depends(require_roles(["student", "admin"])),
 ) -> WebhookRegisterResponse:
     """
     Register a webhook URL for assessment completion callbacks (Story 2.3).
@@ -256,7 +256,7 @@ async def register_webhook(
 async def get_assessment_result(
     assessment_id: str,
     session: AsyncSession = Depends(get_db_session),
-    user: User = Depends(require_roles(["student"])),
+    user: User = Depends(require_roles(["student", "admin"])),
 ) -> AssessmentResultResponse:
     """
     Get assessment result with recommendations (Story 3.2).
@@ -311,7 +311,7 @@ async def submit_feedback(
     assessment_id: str,
     payload: FeedbackCreateRequest,
     session: AsyncSession = Depends(get_db_session),
-    user: User = Depends(require_roles(["student", "advisor"])),
+    user: User = Depends(require_roles(["student", "advisor", "admin"])),
 ) -> FeedbackResponse:
     """
     Submit feedback on assessment recommendations (Story 3.3).
