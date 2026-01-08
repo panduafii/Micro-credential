@@ -61,13 +61,9 @@ async def test_personalized_flow():
         assessment_id = assessment.get("assessment_id") or assessment.get("id")
         print(f"Assessment ID: {assessment_id}")
 
-        # Step 2: Get questions - verify Q2, Q3, Q4 updated
+        # Step 2: Get questions - already in start response
         print("\n=== Step 2: Get Questions ===")
-        response = await client.get(
-            f"{BASE_URL}/assessments/{assessment_id}/questions",
-            headers=headers,
-        )
-        questions = response.json()
+        questions = assessment.get("questions", [])
         print(f"Total questions: {len(questions)}")
 
         # Find profile questions
