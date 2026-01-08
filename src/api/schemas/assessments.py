@@ -25,6 +25,9 @@ class AssessmentQuestion(BaseModel):
         None, description="Options for multiple choice questions"
     )
     metadata: dict | None = None
+    expected_values: dict | None = Field(
+        None, description="Expected values and validation rules for profile questions"
+    )
     response: dict | None = None
 
 

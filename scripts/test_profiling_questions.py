@@ -19,9 +19,10 @@ TEST_PASSWORD = os.getenv("TEST_PASSWORD", "testpassword123")
 
 def print_section(title: str):
     """Print a formatted section header."""
-    print(f"\n{"=" * 60}")
+    separator = "=" * 60
+    print(f"\n{separator}")
     print(f"  {title}")
-    print("=" * 60)
+    print(separator)
 
 
 def register_and_login() -> str:
