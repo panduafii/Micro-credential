@@ -198,25 +198,45 @@ QUESTION_TEMPLATES = [
         "backend-engineer",
         8,
         "profile",
-        "Framework dan bahasa pemrograman apa yang paling sering Anda gunakan?",
-        "tech-stack",
-        expected_values={"accepted_values": ["node", "python", "go", "java", "ruby"]},
+        (
+            "Teknologi/tools apa yang ingin Anda pelajari lebih dalam? "
+            "(Sebutkan 2-3, misal: Docker, AWS, GraphQL)"
+        ),
+        "tech-preferences",
+        expected_values={
+            "accepted_values": [
+                "docker",
+                "kubernetes",
+                "aws",
+                "gcp",
+                "azure",
+                "graphql",
+                "redis",
+                "kafka",
+                "microservices",
+                "ci/cd",
+                "terraform",
+                "mongodb",
+                "postgresql",
+                "elasticsearch",
+            ]
+        },
     ),
     make_question(
         "backend-engineer",
         9,
         "profile",
-        "Apakah Anda pernah deploy aplikasi ke production? Jelaskan platform yang digunakan.",
-        "deployment",
-        expected_values={"accepted_values": ["aws", "gcp", "azure", "render", "docker"]},
+        "Preferensi durasi course yang Anda inginkan?",
+        "content-duration",
+        expected_values={"accepted_values": ["short", "medium", "long", "any"]},
     ),
     make_question(
         "backend-engineer",
         10,
         "profile",
-        "Ceritakan tantangan teknis terbesar yang pernah Anda hadapi dan bagaimana solusinya.",
-        "problem-solving",
-        expected_values={"accepted_values": ["outage", "scaling", "migration", "refactor"]},
+        "Apakah Anda tertarik dengan course berbayar atau gratis?",
+        "payment-preference",
+        expected_values={"accepted_values": ["paid", "free", "any"]},
     ),
     # Data Analyst Questions
     make_question(

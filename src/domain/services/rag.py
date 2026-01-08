@@ -242,10 +242,21 @@ class RAGService:
         if role_keywords:
             query_parts.extend(role_keywords[:5])  # Top 5 keywords
 
-        # Add profile signals if available
+        # Add user tech preferences (Q2: tech-preferences)
         if profile_signals:
-            for _key, value in profile_signals.items():
-                if isinstance(value, str) and len(value) > 2:
+            tech_prefs = profile_signals.get("tech-preferences", "")
+            if tech_prefs:
+                # User explicitly wants to learn these technologies
+                pref_keywords = [
+                    t.strip().lower()
+                    for t in tech_prefs.replace(",", " ").split()
+                    if len(t.strip()) > 2
+                ]
+                query_parts.extend(pref_keywords[:5])  # Prioritize user preferences
+
+            # Add other profile signals
+            for key, value in profile_signals.items():
+                if key != "tech-preferences" and isinstance(value, str) and len(value) > 2:
                     query_parts.append(value)
 
         # Add essay keywords if extracted
@@ -295,6 +306,7 @@ class RAGService:
         query: str,
         top_k: int = 5,
         missed_topics: list[str] | None = None,
+        profile_signals: dict | None = None,
     ) -> list[CourseMatch]:
         """Retrieve top-K courses matching the query."""
         courses = self._load_courses()
@@ -307,21 +319,49 @@ class RAGService:
 
         query_vec = self._hash_embedding(self._tokenize(query))
         missed_topics = missed_topics or []
+        profile_signals = profile_signals or {}
+
+        # Extract preferences from profile
+        payment_pref = profile_signals.get("payment-preference", "any").lower()
+        duration_pref = profile_signals.get("content-duration", "any").lower()
 
         scored_courses = []
         for course in courses:
+            # Filter by payment preference (Q4)
+            is_paid = str(course.get("is_paid", "True")).lower() == "true"
+            if payment_pref == "free" and is_paid:
+                continue  # Skip paid courses if user wants free
+            elif payment_pref == "paid" and not is_paid:
+                continue  # Skip free courses if user wants paid
+
+            # Calculate scores
             keyword_score = self._calculate_relevance(course, query_terms)
             embedding_score = self._cosine_similarity(query_vec, course.get("_vector", []))
             tag_boost = 0.0
             course_tags = course.get("_tags", [])
             if missed_topics and any(tag in missed_topics for tag in course_tags):
                 tag_boost = 0.1
-            score = keyword_score * 0.6 + embedding_score * 0.4 + tag_boost
+
+            # Boost for duration preference (Q3) - requires content_duration field in CSV
+            # For now, we'll infer from level as proxy:
+            # - short: beginner courses
+            # - medium: intermediate
+            # - long: advanced/all levels
+            duration_boost = 0.0
+            level = course.get("level", "").lower()
+            if duration_pref == "short" and "beginner" in level:
+                duration_boost = 0.05
+            elif duration_pref == "medium" and "intermediate" in level:
+                duration_boost = 0.05
+            elif duration_pref == "long" and ("advanced" in level or "all levels" in level):
+                duration_boost = 0.05
+
+            score = keyword_score * 0.6 + embedding_score * 0.4 + tag_boost + duration_boost
             if score > 0.1:  # Minimum threshold
                 scored_courses.append((course, score))
 
-        # Sort by score descending
-        scored_courses.sort(key=lambda x: x[1], reverse=True)
+        # Sort by score descending, then by course_id for deterministic results
+        scored_courses.sort(key=lambda x: (-x[1], x[0].get("course_id", "")))
 
         matches = []
         for _i, (course, score) in enumerate(scored_courses[:top_k]):
@@ -396,7 +436,7 @@ class RAGService:
         query = self._build_query(role_slug, profile_signals, essay_keywords, missed_topics)
 
         try:
-            matches = self._retrieve_courses(query, top_k, missed_topics)
+            matches = self._retrieve_courses(query, top_k, missed_topics, profile_signals)
 
             if not matches:
                 # AC4: Static fallback
