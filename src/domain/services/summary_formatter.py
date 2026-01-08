@@ -148,9 +148,8 @@ def format_assessment_summary(
             elif len(missed_topics) == 2:
                 missed_topics_text = f"**{missed_topics[0]}** dan **{missed_topics[1]}**"
             else:
-                missed_topics_text = (
-                    f"**{", ".join(missed_topics[:-1])}**, dan **{missed_topics[-1]}**"
-                )
+                joined = ", ".join(missed_topics[:-1])
+                missed_topics_text = f"**{joined}**, dan **{missed_topics[-1]}**"
 
         if tech_prefs:
             # Check if tech preference matches role or is realistic for beginner
