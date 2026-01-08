@@ -246,16 +246,20 @@ async def verify_updates():
             rows = result.fetchall()
 
             print("\n📊 Current state of profiling questions:\n")
-            print(
-                f"{"Role":<20} {"Q":<3} {"Dimension":<20} {"Custom":<8} {"Values":<8} {"Prompt":<50}"
+            header = (
+                f"{"Role":<20} {"Q":<3} {"Dimension":<20} "
+                f"{"Custom":<8} {"Values":<8} {"Prompt":<50}"
             )
+            print(header)
             print("-" * 110)
 
             for row in rows:
                 role_slug, seq, prompt, dimension, allow_custom, values_count = row
-                print(
-                    f"{role_slug:<20} {seq:<3} {dimension or "N/A":<20} {allow_custom or "N/A":<8} {values_count or 0:<8} {prompt}..."
+                row_text = (
+                    f"{role_slug:<20} {seq:<3} {dimension or "N/A":<20} "
+                    f"{allow_custom or "N/A":<8} {values_count or 0:<8} {prompt}..."
                 )
+                print(row_text)
 
             # Check if all are correct
             print("\n🔍 Validation:")
@@ -264,29 +268,37 @@ async def verify_updates():
                 role_slug, seq, prompt, dimension, allow_custom, values_count = row
                 if seq == 8:
                     if dimension != "tech-preferences":
-                        print(
-                            f"   ❌ {role_slug} Q8: dimension should be 'tech-preferences', got '{dimension}'"
+                        msg = (
+                            f"   ❌ {role_slug} Q8: dimension should be "
+                            f"'tech-preferences', got '{dimension}'"
                         )
+                        print(msg)
                         all_good = False
                     if allow_custom != "true":
-                        print(
-                            f"   ❌ {role_slug} Q8: allow_custom should be 'true', got '{allow_custom}'"
+                        msg = (
+                            f"   ❌ {role_slug} Q8: allow_custom should be "
+                            f"'true', got '{allow_custom}'"
                         )
+                        print(msg)
                         all_good = False
                     if values_count < 10:
                         print(f"   ❌ {role_slug} Q8: should have 10+ values, got {values_count}")
                         all_good = False
                 elif seq == 9:
                     if dimension != "content-duration":
-                        print(
-                            f"   ❌ {role_slug} Q9: dimension should be 'content-duration', got '{dimension}'"
+                        msg = (
+                            f"   ❌ {role_slug} Q9: dimension should be "
+                            f"'content-duration', got '{dimension}'"
                         )
+                        print(msg)
                         all_good = False
                 elif seq == 10:
                     if dimension != "payment-preference":
-                        print(
-                            f"   ❌ {role_slug} Q10: dimension should be 'payment-preference', got '{dimension}'"
+                        msg = (
+                            f"   ❌ {role_slug} Q10: dimension should be "
+                            f"'payment-preference', got '{dimension}'"
                         )
+                        print(msg)
                         all_good = False
 
             if all_good:
