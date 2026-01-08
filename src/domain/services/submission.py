@@ -422,7 +422,8 @@ class SubmissionService:
 
         Rules:
         - Profile questions capture preferences/self-assessment
-        - Score based on completeness of response
+        - Score based on expected_values scoring map OR completeness
+        - Supports compound questions with multiple fields
         """
         max_score = self.PROFILE_MAX_SCORE * (snapshot.weight or 1.0)
         if response is None:
@@ -434,13 +435,35 @@ class SubmissionService:
             }
 
         response_data = response.response_data or {}
+        expected_values = snapshot.expected_values or {}
 
-        # Profile scoring: check if response has meaningful content
+        # Check for compound question type (Q7 with months + projects)
+        if isinstance(expected_values, dict) and expected_values.get("type") == "compound":
+            return self._score_compound_profile(snapshot, response_data, expected_values, max_score)
+
+        # Check for scoring map (standard profile question with A/B/C/D/E options)
+        if isinstance(expected_values, dict) and "scoring" in expected_values:
+            scoring_map = expected_values["scoring"]
+            selected = response_data.get("selected_option") or response_data.get("value", "")
+
+            if selected and selected in scoring_map:
+                # Calculate score based on scoring map (e.g., {"A": 20, "B": 40, ...})
+                raw_score = scoring_map[selected]
+                # Normalize to max_score (scoring map values are 0-100, scale to max_score)
+                score = (raw_score / 100.0) * max_score
+                return {
+                    "score": score,
+                    "max_score": max_score,
+                    "explanation": f"Skor profil: {raw_score}%",
+                    "rules_applied": {
+                        "rule": "scoring_map",
+                        "selected": selected,
+                        "raw_score": raw_score,
+                    },
+                }
+
+        # Fallback: check if response has meaningful content
         has_value = bool(response_data.get("value") or response_data.get("selected_option"))
-
-        expected_values = snapshot.expected_values or (snapshot.metadata_ or {}).get(
-            "accepted_values"
-        )
 
         if has_value and expected_values:
             value = (
@@ -496,6 +519,46 @@ class SubmissionService:
             "max_score": max_score,
             "explanation": "Profil tidak lengkap",
             "rules_applied": {"rule": "completeness_check", "has_value": False},
+        }
+
+    def _score_compound_profile(
+        self,
+        snapshot: AssessmentQuestionSnapshot,
+        response_data: dict,
+        expected_values: dict,
+        max_score: float,
+    ) -> dict[str, Any]:
+        """Score a compound profile question with multiple fields."""
+        scoring = expected_values.get("scoring", {})
+        weights = expected_values.get("weight", {})
+
+        total_score = 0.0
+        details = {}
+
+        for field, field_scoring in scoring.items():
+            field_value = response_data.get(field, "")
+            field_weight = weights.get(field, 1.0 / len(scoring))
+
+            if field_value and field_value in field_scoring:
+                raw = field_scoring[field_value]
+                weighted = raw * field_weight
+                total_score += weighted
+                details[field] = {"value": field_value, "raw": raw, "weighted": weighted}
+            else:
+                details[field] = {"value": field_value, "raw": 0, "weighted": 0}
+
+        # Normalize to max_score
+        score = (total_score / 100.0) * max_score
+
+        return {
+            "score": score,
+            "max_score": max_score,
+            "explanation": f"Skor compound: {total_score:.0f}%",
+            "rules_applied": {
+                "rule": "compound_scoring",
+                "details": details,
+                "total_raw": total_score,
+            },
         }
 
     async def _create_async_jobs(
