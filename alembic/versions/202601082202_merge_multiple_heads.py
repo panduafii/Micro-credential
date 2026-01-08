@@ -9,8 +9,6 @@ The old migration 202501082201 was incorrectly placed and has been replaced
 with 202601082201, but production database may already have the old one applied.
 """
 
-from alembic import op
-
 # revision identifiers, used by Alembic.
 revision = "202601082202"
 down_revision = ("202601080002", "202501082201")  # Merge both heads

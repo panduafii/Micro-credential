@@ -9,8 +9,6 @@ Keeping it as a placeholder to maintain migration history integrity.
 The actual personalization changes are in 202601082201.
 """
 
-from alembic import op
-
 # revision identifiers, used by Alembic.
 revision = "202501082201"
 down_revision = "202412300001"
