@@ -192,11 +192,18 @@ class AssessmentService:
 
         for qtype, count in question_mix.items():
             type_templates = [t for t in templates if t.question_type == qtype and t.is_active]
+            logger.info(
+                f"DEBUG: Type={qtype.value}, Want={count}, Available={len(type_templates)}, "
+                f"Sequences={[t.sequence for t in type_templates]}"
+            )
             # Take up to 'count' questions of this type
             selected.extend(type_templates[:count])
 
         # Sort by sequence for consistent ordering
         selected.sort(key=lambda t: t.sequence)
+        logger.info(
+            f"DEBUG: Total selected={len(selected)}, Sequences={[t.sequence for t in selected]}"
+        )
         return selected
 
     async def _get_question_templates(self, role_slug: str) -> list[QuestionTemplate]:
@@ -205,7 +212,12 @@ class AssessmentService:
             .where(QuestionTemplate.role_slug == role_slug, QuestionTemplate.is_active.is_(True))
             .order_by(QuestionTemplate.sequence)
         )
-        return list((await self.session.execute(stmt)).scalars().all())
+        templates = list((await self.session.execute(stmt)).scalars().all())
+        logger.info(
+            f"DEBUG: Loaded {len(templates)} templates for role={role_slug}. "
+            f"Sequences: {[t.sequence for t in templates]}"
+        )
+        return templates
 
     async def _build_questions_payload(self, assessment_id: str) -> list[AssessmentQuestionPayload]:
         stmt = (
