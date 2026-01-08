@@ -73,8 +73,8 @@ def register_and_login() -> str:
             sys.exit(1)
 
 
-def test_role_questions(role_slug: str, token: str):
-    """Test profiling questions for a specific role."""
+def check_role_questions(role_slug: str, token: str):
+    """Check profiling questions for a specific role."""
     print_section(f"Testing {role_slug.upper()} Questions")
 
     url = f"{API_BASE_URL}/assessments/start"
@@ -170,8 +170,8 @@ def main():
     token = register_and_login()
 
     # Test both roles
-    test_role_questions("backend-engineer", token)
-    test_role_questions("data-analyst", token)
+    check_role_questions("backend-engineer", token)
+    check_role_questions("data-analyst", token)
 
     print_section("TEST COMPLETE")
     print("\n✅ Test completed! Check the output above for validation results.\n")
