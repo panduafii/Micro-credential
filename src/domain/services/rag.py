@@ -234,37 +234,47 @@ class RAGService:
         essay_keywords: list[str] | None = None,
         missed_topics: list[str] | None = None,
     ) -> str:
-        """Build RAG query from role context and signals."""
+        """Build RAG query from role context and signals.
+
+        Priority order (highest first):
+        1. User's tech preferences (what they explicitly want to learn)
+        2. Missed topics from assessment (areas needing improvement)
+        3. Essay keywords (topics user discussed)
+        4. Role keywords (general role-related terms)
+        """
         query_parts = []
 
-        # Add role keywords
-        role_keywords = ROLE_KEYWORDS.get(role_slug, [])
-        if role_keywords:
-            query_parts.extend(role_keywords[:5])  # Top 5 keywords
-
-        # Add user tech preferences (Q2: tech-preferences)
+        # PRIORITY 1: User tech preferences first (most important)
+        # User explicitly stated what they want to learn
         if profile_signals:
             tech_prefs = profile_signals.get("tech-preferences", "")
             if tech_prefs:
-                # User explicitly wants to learn these technologies
                 pref_keywords = [
                     t.strip().lower()
                     for t in tech_prefs.replace(",", " ").split()
                     if len(t.strip()) > 2
                 ]
-                query_parts.extend(pref_keywords[:5])  # Prioritize user preferences
+                # Add tech preferences multiple times for higher weight
+                query_parts.extend(pref_keywords[:5])
+                query_parts.extend(pref_keywords[:3])  # Repeat for boost
 
-            # Add other profile signals
-            for key, value in profile_signals.items():
-                if key != "tech-preferences" and isinstance(value, str) and len(value) > 2:
-                    query_parts.append(value)
+        # PRIORITY 2: Missed topics (areas user needs to improve)
+        if missed_topics:
+            query_parts.extend(missed_topics[:5])
 
-        # Add essay keywords if extracted
+        # PRIORITY 3: Essay keywords
         if essay_keywords:
             query_parts.extend(essay_keywords[:3])
 
-        if missed_topics:
-            query_parts.extend(missed_topics[:5])
+        # PRIORITY 4: Role keywords (general context, lower priority)
+        role_keywords = ROLE_KEYWORDS.get(role_slug, [])
+        if role_keywords:
+            # Only add role keywords if no strong user preference
+            if not profile_signals or not profile_signals.get("tech-preferences"):
+                query_parts.extend(role_keywords[:5])
+            else:
+                # Add fewer role keywords when user has preferences
+                query_parts.extend(role_keywords[:2])
 
         return " ".join(query_parts)
 
@@ -324,6 +334,12 @@ class RAGService:
         # Extract preferences from profile
         payment_pref = profile_signals.get("payment-preference", "any").lower()
         duration_pref = profile_signals.get("content-duration", "any").lower()
+        tech_prefs = profile_signals.get("tech-preferences", "").lower()
+
+        # Parse tech preferences into keywords for exact matching
+        tech_pref_keywords = [
+            t.strip().lower() for t in tech_prefs.replace(",", " ").split() if len(t.strip()) > 2
+        ]
 
         scored_courses = []
         for course in courses:
@@ -341,6 +357,22 @@ class RAGService:
             course_tags = course.get("_tags", [])
             if missed_topics and any(tag in missed_topics for tag in course_tags):
                 tag_boost = 0.1
+
+            # MAJOR BOOST for exact tech preference match
+            # This ensures courses matching user's explicit preference rank higher
+            tech_pref_boost = 0.0
+            course_title_lower = course.get("course_title", "").lower()
+            tech_pref_matched = False
+            matched_tech_terms = []
+            for tech_term in tech_pref_keywords:
+                if tech_term in course_title_lower:
+                    tech_pref_boost += 0.3  # Significant boost per matched term
+                    tech_pref_matched = True
+                    matched_tech_terms.append(tech_term)
+
+            # Store matched tech terms for reason generation
+            course["_matched_tech_prefs"] = matched_tech_terms
+            course["_tech_pref_matched"] = tech_pref_matched
 
             # Boost for duration preference (Q3) - requires content_duration field in CSV
             # For now, we'll infer from level as proxy:
@@ -371,15 +403,15 @@ class RAGService:
             course["_duration_matched"] = duration_matched
             course["_payment_matched"] = payment_matched and payment_pref != "any"
             course["_is_paid"] = is_paid
-            level = course.get("level", "").lower()
-            if duration_pref == "short" and "beginner" in level:
-                duration_boost = 0.05
-            elif duration_pref == "medium" and "intermediate" in level:
-                duration_boost = 0.05
-            elif duration_pref == "long" and ("advanced" in level or "all levels" in level):
-                duration_boost = 0.05
 
-            score = keyword_score * 0.6 + embedding_score * 0.4 + tag_boost + duration_boost
+            # Calculate final score with tech preference boost having highest weight
+            score = (
+                keyword_score * 0.4
+                + embedding_score * 0.2
+                + tag_boost
+                + duration_boost
+                + tech_pref_boost  # Major boost for matching user's explicit tech preference
+            )
             if score > 0.1:  # Minimum threshold
                 scored_courses.append((course, score))
 
@@ -402,8 +434,18 @@ class RAGService:
             )
 
             reason_parts = []
+
+            # PRIORITY: Show tech preference match first (most important to user)
+            matched_tech_prefs = course.get("_matched_tech_prefs", [])
+            if matched_tech_prefs:
+                reason_parts.append("Matches your interest in " + ", ".join(matched_tech_prefs))
+
             if matched_terms:
-                reason_parts.append("Covers " + ", ".join(matched_terms[:3]))
+                # Filter out terms already mentioned in tech prefs
+                other_terms = [t for t in matched_terms[:3] if t not in matched_tech_prefs]
+                if other_terms:
+                    reason_parts.append("covers " + ", ".join(other_terms))
+
             if matched_topics:
                 reason_parts.append("addresses " + ", ".join(matched_topics[:2]))
             if rating_quality:
