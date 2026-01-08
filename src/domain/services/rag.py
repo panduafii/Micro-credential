@@ -349,6 +349,29 @@ class RAGService:
             # - long: advanced/all levels
             duration_boost = 0.0
             level = course.get("level", "").lower()
+            duration_matched = False
+            if duration_pref == "short" and "beginner" in level:
+                duration_boost = 0.05
+                duration_matched = True
+            elif duration_pref == "medium" and "intermediate" in level:
+                duration_boost = 0.05
+                duration_matched = True
+            elif duration_pref == "long" and ("advanced" in level or "all levels" in level):
+                duration_boost = 0.05
+                duration_matched = True
+
+            # Track payment match for match_reason
+            payment_matched = (
+                (payment_pref == "free" and not is_paid)
+                or (payment_pref == "paid" and is_paid)
+                or payment_pref == "any"
+            )
+
+            # Store preference match info for later
+            course["_duration_matched"] = duration_matched
+            course["_payment_matched"] = payment_matched and payment_pref != "any"
+            course["_is_paid"] = is_paid
+            level = course.get("level", "").lower()
             if duration_pref == "short" and "beginner" in level:
                 duration_boost = 0.05
             elif duration_pref == "medium" and "intermediate" in level:
@@ -385,6 +408,24 @@ class RAGService:
                 reason_parts.append("addresses " + ", ".join(matched_topics[:2]))
             if rating_quality:
                 reason_parts.append(f"{rating_quality} ({num_reviews} reviews)")
+
+            # Add personalization match reasons
+            if course.get("_duration_matched"):
+                if "beginner" in level:
+                    reason_parts.append("matches your preference for short/beginner content")
+                elif "intermediate" in level:
+                    reason_parts.append("matches your preferred medium duration")
+                elif "advanced" in level or "all levels" in level:
+                    reason_parts.append("matches your preference for comprehensive content")
+
+            if course.get("_payment_matched"):
+                is_paid = course.get("_is_paid", True)
+                if is_paid:
+                    reason_parts.append("premium course as preferred")
+                else:
+                    reason_parts.append("free course as preferred")
+
+            # Level description
             if "beginner" in level or "all levels" in level:
                 reason_parts.append("suitable for building foundations")
             elif "intermediate" in level or "advanced" in level:

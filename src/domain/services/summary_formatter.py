@@ -14,9 +14,26 @@ def format_assessment_summary(
     has_essay: bool,
     recommendations: Iterable[RecommendationItem],
     degraded: bool,
+    profile_signals: dict | None = None,
 ) -> str:
-    """Build a markdown summary for assessment results."""
+    """Build a markdown summary for assessment results.
+
+    Args:
+        role_title: The assessment role title
+        overall_pct: Overall score percentage
+        theoretical_pct: Theoretical questions score percentage
+        profile_pct: Profile questions score percentage
+        essay_pct: Essay questions score percentage
+        has_essay: Whether assessment had essay questions
+        recommendations: List of course recommendations
+        degraded: Whether recommendations are in degraded mode
+        profile_signals: User preferences from profiling questions (Q8-Q10)
+            - tech-preferences: What technologies/topics user wants to learn
+            - content-duration: Preferred course duration (short/medium/long/any)
+            - payment-preference: Payment preference (paid/free/any)
+    """
     lines: list[str] = []
+    profile_signals = profile_signals or {}
 
     # Opening headline based on score
     if overall_pct >= 80:
@@ -116,6 +133,38 @@ def format_assessment_summary(
         lines.append(f"  {essay_insight}")
         lines.append("")
 
+    # Personalization preferences section
+    tech_prefs = profile_signals.get("tech-preferences", "")
+    duration_pref = profile_signals.get("content-duration", "any").lower()
+    payment_pref = profile_signals.get("payment-preference", "any").lower()
+
+    has_preferences = tech_prefs or duration_pref != "any" or payment_pref != "any"
+    if has_preferences:
+        lines.append("**Personalisasi Rekomendasi**")
+        lines.append("")
+        lines.append("Berdasarkan preferensi yang Anda pilih:")
+
+        if tech_prefs:
+            lines.append(f"• **Topik yang ingin dipelajari:** {tech_prefs}")
+
+        if duration_pref != "any":
+            duration_text = {
+                "short": "Kursus singkat (< 2 jam)",
+                "medium": "Kursus menengah (2-10 jam)",
+                "long": "Kursus lengkap (> 10 jam)",
+            }.get(duration_pref, duration_pref)
+            lines.append(f"• **Durasi konten:** {duration_text}")
+
+        if payment_pref != "any":
+            payment_text = "Gratis" if payment_pref == "free" else "Berbayar"
+            lines.append(f"• **Preferensi pembayaran:** {payment_text}")
+
+        lines.append("")
+        lines.append(
+            "Rekomendasi kursus di bawah telah diprioritaskan berdasarkan preferensi Anda."
+        )
+        lines.append("")
+
     # Personalized learning path recommendations
     recs = list(recommendations)
     if recs:
@@ -148,23 +197,52 @@ def format_assessment_summary(
 
             # Add comprehensive explanation
             if rec.match_reason:
-                lines.append(f"   • Why recommended: {rec.match_reason}")
+                lines.append(f"   • Alasan rekomendasi: {rec.match_reason}")
+
+            # Add personalization match info
+            metadata = rec.course_metadata or {}
+            personalization_matches = []
+
+            # Check tech preference match
+            if tech_prefs:
+                course_title_lower = rec.course_title.lower()
+                tech_keywords = [t.strip().lower() for t in tech_prefs.replace(",", " ").split()]
+                matched_techs = [t for t in tech_keywords if t in course_title_lower]
+                if matched_techs:
+                    personalization_matches.append("Sesuai minat: " + ", ".join(matched_techs))
+
+            # Check duration match
+            level = metadata.get("level", "").lower()
+            if duration_pref == "short" and "beginner" in level:
+                personalization_matches.append("Cocok untuk pemula (durasi singkat)")
+            elif duration_pref == "medium" and "intermediate" in level:
+                personalization_matches.append("Level menengah sesuai preferensi")
+            elif duration_pref == "long" and ("advanced" in level or "all levels" in level):
+                personalization_matches.append("Konten lengkap/advanced sesuai preferensi")
+
+            # Check payment match
+            is_paid = str(metadata.get("is_paid", "True")).lower() == "true"
+            if payment_pref == "free" and not is_paid:
+                personalization_matches.append("Gratis sesuai preferensi")
+            elif payment_pref == "paid" and is_paid:
+                personalization_matches.append("Kursus premium sesuai preferensi")
+
+            if personalization_matches:
+                lines.append("   • Kecocokan preferensi: " + "; ".join(personalization_matches))
 
             # Add course metadata for better understanding
-            metadata = rec.course_metadata or {}
-            level = metadata.get("level", "")
             if level:
-                lines.append(f"   • Difficulty: {level}")
+                lines.append(f"   • Tingkat kesulitan: {level.title()}")
 
             # Add relevance with interpretation
             rel_score = rec.relevance_score
             if rel_score >= 0.8:
-                rel_text = f"{rel_score:.2f}/1.0 (Highly Relevant)"
+                rel_text = f"{rel_score:.2f}/1.0 (Sangat Relevan)"
             elif rel_score >= 0.6:
-                rel_text = f"{rel_score:.2f}/1.0 (Relevant)"
+                rel_text = f"{rel_score:.2f}/1.0 (Relevan)"
             else:
-                rel_text = f"{rel_score:.2f}/1.0 (Moderately Relevant)"
-            lines.append(f"   • Match Score: {rel_text}")
+                rel_text = f"{rel_score:.2f}/1.0 (Cukup Relevan)"
+            lines.append(f"   • Skor kecocokan: {rel_text}")
 
             lines.append("")
 

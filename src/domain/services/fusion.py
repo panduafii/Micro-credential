@@ -17,6 +17,8 @@ from sqlalchemy.orm import selectinload
 from src.domain.services.summary_formatter import format_assessment_summary
 from src.infrastructure.db.models import (
     Assessment,
+    AssessmentQuestionSnapshot,
+    AssessmentResponse,
     AssessmentStatus,
     AsyncJob,
     JobStatus,
@@ -129,6 +131,7 @@ class FusionService:
         breakdown: ScoreBreakdown,
         recommendations: list[RecommendationItem],
         degraded: bool,
+        profile_signals: dict | None = None,
     ) -> str:
         """Generate narrative summary from scores and recommendations."""
         return format_assessment_summary(
@@ -140,7 +143,38 @@ class FusionService:
             has_essay=breakdown.essay_max > 0,
             recommendations=recommendations,
             degraded=degraded,
+            profile_signals=profile_signals,
         )
+
+    async def _extract_profile_signals(self, assessment_id: str) -> dict:
+        """Extract profile signals from assessment responses.
+
+        Returns dict with keys:
+            - tech-preferences: What user wants to learn (Q8)
+            - content-duration: Preferred duration (Q9)
+            - payment-preference: Paid/free preference (Q10)
+        """
+        stmt = (
+            select(AssessmentQuestionSnapshot, AssessmentResponse)
+            .join(
+                AssessmentResponse,
+                AssessmentResponse.question_snapshot_id == AssessmentQuestionSnapshot.id,
+            )
+            .where(
+                AssessmentQuestionSnapshot.assessment_id == assessment_id,
+                AssessmentQuestionSnapshot.question_type == QuestionType.PROFILE,
+            )
+        )
+        rows = (await self.session.execute(stmt)).all()
+        signals: dict[str, str] = {}
+        for snapshot, response in rows:
+            response_data = response.response_data or {}
+            value = response_data.get("value") or response_data.get("selected_option")
+            if not value:
+                continue
+            key = (snapshot.metadata_ or {}).get("dimension") or str(snapshot.sequence)
+            signals[str(key)] = str(value)
+        return signals
 
     async def process_fusion_job(self, assessment_id: str) -> FusionResult:
         """
@@ -193,9 +227,12 @@ class FusionService:
         degraded = recommendation.degraded if recommendation else False
         rag_traces = recommendation.rag_traces if recommendation else None
 
-        # Generate summary
+        # Extract profile signals for personalization
+        profile_signals = await self._extract_profile_signals(assessment_id)
+
+        # Generate summary with personalization
         role_title = assessment.role.name if assessment.role else assessment.role_slug
-        summary = self._generate_summary(role_title, breakdown, items, degraded)
+        summary = self._generate_summary(role_title, breakdown, items, degraded, profile_signals)
 
         # Calculate processing duration
         duration_ms = int((time.time() - start_time) * 1000)
