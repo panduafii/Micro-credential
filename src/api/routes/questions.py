@@ -27,6 +27,7 @@ def _serialize_question(question: QuestionTemplate) -> dict[str, Any]:
         "sequence": question.sequence,
         "question_type": question.question_type,
         "prompt": question.prompt,
+        "options": question.options,
         "difficulty": question.difficulty,
         "weight": question.weight,
         "correct_answer": question.correct_answer,
@@ -112,6 +113,7 @@ async def create_question(
         sequence=question_data.sequence,
         question_type=question_data.question_type,
         prompt=question_data.prompt,
+        options=[opt.model_dump() for opt in question_data.options] if question_data.options else None,
         metadata_=question_data.metadata_,
         difficulty=question_data.difficulty,
         weight=question_data.weight or 1.0,
@@ -173,6 +175,11 @@ async def update_question(
             else old_question.question_type
         ),
         prompt=question_data.prompt if question_data.prompt is not None else old_question.prompt,
+        options=(
+            [opt.model_dump() for opt in question_data.options]
+            if question_data.options is not None
+            else old_question.options
+        ),
         metadata_=(
             question_data.metadata_
             if question_data.metadata_ is not None
