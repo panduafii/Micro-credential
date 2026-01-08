@@ -27,11 +27,7 @@ def upgrade() -> None:
         SET
             prompt = 'Teknologi/tools apa yang ingin Anda pelajari lebih dalam? '
                      '(Sebutkan 2-3, misal: Docker, AWS, GraphQL)',
-            metadata = jsonb_set(
-                COALESCE(metadata, '{}'::jsonb),
-                '{dimension}',
-                '"tech-preferences"'
-            ),
+            metadata = '{"dimension": "tech-preferences"}'::json,
             expected_values = '{
                 "accepted_values": [
                     "docker", "kubernetes", "aws", "gcp", "azure",
@@ -39,7 +35,7 @@ def upgrade() -> None:
                     "ci/cd", "terraform", "mongodb", "postgresql", "elasticsearch"
                 ],
                 "allow_custom": true
-            }'::jsonb
+            }'::json
         WHERE role_slug = 'backend-engineer'
         AND sequence = 8
         AND question_type = 'profile';
@@ -50,14 +46,10 @@ def upgrade() -> None:
         UPDATE question_templates
         SET
             prompt = 'Preferensi durasi course yang Anda inginkan?',
-            metadata = jsonb_set(
-                COALESCE(metadata, '{}'::jsonb),
-                '{dimension}',
-                '"content-duration"'
-            ),
+            metadata = '{"dimension": "content-duration"}'::json,
             expected_values = '{
                 "accepted_values": ["short", "medium", "long", "any"]
-            }'::jsonb
+            }'::json
         WHERE role_slug = 'backend-engineer'
         AND sequence = 9
         AND question_type = 'profile';
@@ -68,14 +60,10 @@ def upgrade() -> None:
         UPDATE question_templates
         SET
             prompt = 'Apakah Anda tertarik dengan course berbayar atau gratis?',
-            metadata = jsonb_set(
-                COALESCE(metadata, '{}'::jsonb),
-                '{dimension}',
-                '"payment-preference"'
-            ),
+            metadata = '{"dimension": "payment-preference"}'::json,
             expected_values = '{
                 "accepted_values": ["paid", "free", "any"]
-            }'::jsonb
+            }'::json
         WHERE role_slug = 'backend-engineer'
         AND sequence = 10
         AND question_type = 'profile';
@@ -89,14 +77,10 @@ def downgrade() -> None:
         UPDATE question_templates
         SET
             prompt = 'Framework dan bahasa pemrograman apa yang paling sering Anda gunakan?',
-            metadata = jsonb_set(
-                COALESCE(metadata, '{}'::jsonb),
-                '{dimension}',
-                '"tech-stack"'
-            ),
+            metadata = '{"dimension": "tech-stack"}'::json,
             expected_values = '{
                 "accepted_values": ["node", "python", "go", "java", "ruby"]
-            }'::jsonb
+            }'::json
         WHERE role_slug = 'backend-engineer'
         AND sequence = 8
         AND question_type = 'profile';
@@ -108,11 +92,7 @@ def downgrade() -> None:
         SET
             prompt = 'Apakah Anda pernah deploy aplikasi ke production? '
                      || 'Jelaskan platform yang digunakan.',
-            metadata = jsonb_set(
-                COALESCE(metadata, '{}'::jsonb),
-                '{dimension}',
-                '"deployment"'
-            ),
+            metadata = '{"dimension": "deployment"}'::json,
             expected_values = '{
                 "accepted_values": ["aws", "gcp", "azure", "render", "docker"]
             }'::jsonb
@@ -127,14 +107,10 @@ def downgrade() -> None:
         SET
             prompt = 'Ceritakan tantangan teknis terbesar yang pernah Anda hadapi '
                      || 'dan bagaimana solusinya.',
-            metadata = jsonb_set(
-                COALESCE(metadata, '{}'::jsonb),
-                '{dimension}',
-                '"problem-solving"'
-            ),
+            metadata = '{"dimension": "problem-solving"}'::json,
             expected_values = '{
                 "accepted_values": ["outage", "scaling", "migration", "refactor"]
-            }'::jsonb
+            }'::json
         WHERE role_slug = 'backend-engineer'
         AND sequence = 10
         AND question_type = 'profile';
