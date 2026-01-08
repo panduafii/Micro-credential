@@ -51,6 +51,7 @@ class AssessmentQuestionPayload:
     difficulty: str | None
     options: list[dict] | None
     metadata: dict | None
+    expected_values: dict | None
     response: dict | None
 
 
@@ -247,6 +248,7 @@ class AssessmentService:
                     difficulty=snapshot.difficulty,
                     options=snapshot.options,
                     metadata=snapshot.metadata_ or {},
+                    expected_values=snapshot.expected_values or {},
                     response=response.response_data if response else None,
                 )
             )
