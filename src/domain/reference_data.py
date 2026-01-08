@@ -219,7 +219,8 @@ QUESTION_TEMPLATES = [
                 "mongodb",
                 "postgresql",
                 "elasticsearch",
-            ]
+            ],
+            "allow_custom": True,  # User can input custom technologies
         },
     ),
     make_question(
