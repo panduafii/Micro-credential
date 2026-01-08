@@ -28,14 +28,10 @@ def upgrade() -> None:
             prompt = 'Teknologi/tools apa yang ingin Anda pelajari lebih dalam? '
                      '(Sebutkan 2-3, misal: Docker, AWS, GraphQL)',
             metadata = '{"dimension": "tech-preferences"}'::json,
-            expected_values = '{
-                "accepted_values": [
-                    "docker", "kubernetes", "aws", "gcp", "azure",
-                    "graphql", "redis", "kafka", "microservices",
-                    "ci/cd", "terraform", "mongodb", "postgresql", "elasticsearch"
-                ],
-                "allow_custom": true
-            }'::json
+            expected_values = ('{"accepted_values": ["docker", "kubernetes", "aws", ' ||
+                '"gcp", "azure", "graphql", "redis", "kafka", "microservices", ' ||
+                '"ci/cd", "terraform", "mongodb", "postgresql", "elasticsearch"], ' ||
+                '"allow_custom": true}')::json
         WHERE role_slug = 'backend-engineer'
         AND sequence = 8
         AND question_type = 'profile';
@@ -47,9 +43,7 @@ def upgrade() -> None:
         SET
             prompt = 'Preferensi durasi course yang Anda inginkan?',
             metadata = '{"dimension": "content-duration"}'::json,
-            expected_values = '{
-                "accepted_values": ["short", "medium", "long", "any"]
-            }'::json
+            expected_values = '{"accepted_values": ["short", "medium", "long", "any"]}'::json
         WHERE role_slug = 'backend-engineer'
         AND sequence = 9
         AND question_type = 'profile';
@@ -61,9 +55,7 @@ def upgrade() -> None:
         SET
             prompt = 'Apakah Anda tertarik dengan course berbayar atau gratis?',
             metadata = '{"dimension": "payment-preference"}'::json,
-            expected_values = '{
-                "accepted_values": ["paid", "free", "any"]
-            }'::json
+            expected_values = '{"accepted_values": ["paid", "free", "any"]}'::json
         WHERE role_slug = 'backend-engineer'
         AND sequence = 10
         AND question_type = 'profile';
@@ -78,9 +70,8 @@ def downgrade() -> None:
         SET
             prompt = 'Framework dan bahasa pemrograman apa yang paling sering Anda gunakan?',
             metadata = '{"dimension": "tech-stack"}'::json,
-            expected_values = '{
-                "accepted_values": ["node", "python", "go", "java", "ruby"]
-            }'::json
+            expected_values = ('{"accepted_values": ["node", "python", ' ||
+                '"go", "java", "ruby"]}')::json
         WHERE role_slug = 'backend-engineer'
         AND sequence = 8
         AND question_type = 'profile';
@@ -93,9 +84,8 @@ def downgrade() -> None:
             prompt = 'Apakah Anda pernah deploy aplikasi ke production? '
                      || 'Jelaskan platform yang digunakan.',
             metadata = '{"dimension": "deployment"}'::json,
-            expected_values = '{
-                "accepted_values": ["aws", "gcp", "azure", "render", "docker"]
-            }'::jsonb
+            expected_values = ('{"accepted_values": ["aws", "gcp", "azure", ' ||
+                '"render", "docker"]}')::jsonb
         WHERE role_slug = 'backend-engineer'
         AND sequence = 9
         AND question_type = 'profile';
@@ -108,9 +98,8 @@ def downgrade() -> None:
             prompt = 'Ceritakan tantangan teknis terbesar yang pernah Anda hadapi '
                      || 'dan bagaimana solusinya.',
             metadata = '{"dimension": "problem-solving"}'::json,
-            expected_values = '{
-                "accepted_values": ["outage", "scaling", "migration", "refactor"]
-            }'::json
+            expected_values = ('{\"accepted_values\": [\"outage\", \"scaling\", ' ||
+                '\"migration\", \"refactor\"]}')::json
         WHERE role_slug = 'backend-engineer'
         AND sequence = 10
         AND question_type = 'profile';
