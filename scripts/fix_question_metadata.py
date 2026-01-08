@@ -98,24 +98,25 @@ async def fix_all_questions():
             # Update Q7 - Experience Level (compound question)
             print("\n📝 Updating BE Q7 (experience-level - compound)...")
             result = await conn.execute(
-                text("""
+                text(
+                    """
                 UPDATE question_templates
                 SET
                     prompt = :prompt,
-                    options = :options::jsonb,
-                    expected_values = :expected_values::jsonb,
-                    metadata = :metadata::jsonb
+                    options = CAST(:options AS jsonb),
+                    expected_values = CAST(:expected_values AS jsonb),
+                    metadata = CAST(:metadata AS jsonb)
                 WHERE role_slug = 'backend-engineer'
                   AND sequence = 7
                   AND question_type = 'profile'
                 RETURNING id, prompt;
-            """),
-                {
-                    "prompt": Q7_NEW["prompt"],
-                    "options": Q7_NEW["options"],
-                    "expected_values": Q7_NEW["expected_values"],
-                    "metadata": Q7_NEW["metadata"],
-                },
+            """
+                ).bindparams(
+                    prompt=Q7_NEW["prompt"],
+                    options=Q7_NEW["options"],
+                    expected_values=Q7_NEW["expected_values"],
+                    metadata=Q7_NEW["metadata"],
+                )
             )
             row = result.fetchone()
             if row:
@@ -185,24 +186,25 @@ async def fix_all_questions():
             # Update Q7 - Experience Level (compound question)
             print("\n📝 Updating DA Q7 (experience-level - compound)...")
             result = await conn.execute(
-                text("""
+                text(
+                    """
                 UPDATE question_templates
                 SET
                     prompt = :prompt,
-                    options = :options::jsonb,
-                    expected_values = :expected_values::jsonb,
-                    metadata = :metadata::jsonb
+                    options = CAST(:options AS jsonb),
+                    expected_values = CAST(:expected_values AS jsonb),
+                    metadata = CAST(:metadata AS jsonb)
                 WHERE role_slug = 'data-analyst'
                   AND sequence = 7
                   AND question_type = 'profile'
                 RETURNING id, prompt;
-            """),
-                {
-                    "prompt": Q7_NEW["prompt"],
-                    "options": Q7_NEW["options"],
-                    "expected_values": Q7_NEW["expected_values"],
-                    "metadata": Q7_NEW["metadata"],
-                },
+            """
+                ).bindparams(
+                    prompt=Q7_NEW["prompt"],
+                    options=Q7_NEW["options"],
+                    expected_values=Q7_NEW["expected_values"],
+                    metadata=Q7_NEW["metadata"],
+                )
             )
             row = result.fetchone()
             if row:
