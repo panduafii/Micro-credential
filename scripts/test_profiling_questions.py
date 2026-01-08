@@ -122,7 +122,8 @@ def check_role_questions(role_slug: str, token: str):
                 print(f"    Allow Custom: {allow_custom}")
                 print(f"    Accepted Values Count: {len(accepted_values)}")
                 if accepted_values:
-                    print(f"    Sample Values: {", ".join(accepted_values[:5])}...")
+                    sample_values = ", ".join(accepted_values[:5])
+                    print(f"    Sample Values: {sample_values}...")
 
                 # Validation
                 if seq == 8:
