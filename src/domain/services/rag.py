@@ -330,22 +330,41 @@ class RAGService:
             matched_terms = [t for t in query_terms if t.lower() in title]
             matched_topics = [t for t in (course.get("_tags", []) or []) if t in missed_topics]
 
+            # Generate comprehensive match reason
+            level = course.get("level", "").lower()
+            subject = course.get("subject", "")
+            num_reviews = int(course.get("num_reviews", "0") or 0)
+            rating_quality = (
+                "highly-rated" if num_reviews > 100 else "well-reviewed" if num_reviews > 50 else ""
+            )
+
+            reason_parts = []
+            if matched_terms:
+                reason_parts.append(f"Covers {", ".join(matched_terms[:3])}")
+            if matched_topics:
+                reason_parts.append(f"addresses {", ".join(matched_topics[:2])}")
+            if rating_quality:
+                reason_parts.append(f"{rating_quality} ({num_reviews} reviews)")
+            if "beginner" in level or "all levels" in level:
+                reason_parts.append("suitable for building foundations")
+            elif "intermediate" in level or "advanced" in level:
+                reason_parts.append("for advancing skills")
+
+            match_reason = (
+                ". ".join(reason_parts).capitalize() + "."
+                if reason_parts
+                else f"Relevant course in {subject}."
+            )
+
             matches.append(
                 CourseMatch(
                     course_id=course.get("course_id", ""),
                     title=course.get("course_title", ""),
                     url=course.get("url"),
                     relevance_score=round(score, 3),
-                    match_reason=(
-                        "Matches: "
-                        + (
-                            ", ".join(matched_terms[:3])
-                            or ", ".join(matched_topics[:3])
-                            or "subject area"
-                        )
-                    ),
+                    match_reason=match_reason,
                     metadata={
-                        "subject": course.get("subject", ""),
+                        "subject": subject,
                         "level": course.get("level", ""),
                         "num_subscribers": course.get("num_subscribers", ""),
                         "num_reviews": course.get("num_reviews", ""),
@@ -440,13 +459,29 @@ class RAGService:
 
         matches = []
         for course in filtered[:top_k]:
+            num_reviews = int(course.get("num_reviews", "0") or 0)
+            num_subscribers = int(course.get("num_subscribers", "0") or 0)
+            level = course.get("level", "").lower()
+
+            reason_parts = [f"Popular {target_subject} course"]
+            if num_subscribers > 10000:
+                reason_parts.append(f"with {num_subscribers:,} enrolled students")
+            if num_reviews > 100:
+                reason_parts.append(f"{num_reviews} reviews")
+            if "beginner" in level:
+                reason_parts.append("ideal for getting started")
+            elif "all levels" in level:
+                reason_parts.append("suitable for all experience levels")
+
+            match_reason = ". ".join(reason_parts) + "."
+
             matches.append(
                 CourseMatch(
                     course_id=course.get("course_id", ""),
                     title=course.get("course_title", ""),
                     url=course.get("url"),
                     relevance_score=0.5,  # Fixed score for fallback
-                    match_reason="Popular course in related field (fallback)",
+                    match_reason=match_reason,
                     metadata={
                         "subject": course.get("subject", ""),
                         "level": course.get("level", ""),
