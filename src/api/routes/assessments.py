@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -80,6 +82,101 @@ async def start_assessment(
         role=TrackItem(**result["role"]),
         questions=[AssessmentQuestion(**question) for question in result["questions"]],
     )
+
+
+@router.delete("/{assessment_id}/abandon")
+async def abandon_assessment(
+    assessment_id: str,
+    session: AsyncSession = Depends(get_db_session),
+    user: User = Depends(require_roles(["student", "admin"])),
+) -> dict[str, str]:
+    """
+    Abandon/exit a draft or in-progress assessment.
+
+    - Only works for draft or in-progress assessments
+    - Deletes the assessment and all associated data
+    - Returns success message
+    """
+    from sqlalchemy import select
+    from src.infrastructure.db.models import Assessment, AssessmentStatus
+
+    # Fetch assessment
+    stmt = select(Assessment).where(Assessment.id == assessment_id)
+    result = await session.execute(stmt)
+    assessment = result.scalar_one_or_none()
+
+    if not assessment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Assessment tidak ditemukan"
+        )
+
+    # Check ownership
+    if assessment.owner_id != user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Anda tidak memiliki akses ke assessment ini",
+        )
+
+    # Can only abandon draft or in-progress
+    if assessment.status not in (AssessmentStatus.DRAFT, AssessmentStatus.IN_PROGRESS):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Assessment dengan status '{assessment.status.value}' tidak bisa diabandon",
+        )
+
+    # Delete assessment (cascade will handle related data)
+    await session.delete(assessment)
+    await session.commit()
+
+    await logger.ainfo(
+        "assessment_abandoned",
+        assessment_id=assessment_id,
+        user_id=user.user_id,
+        role_slug=assessment.role_slug,
+    )
+
+    return {"message": "Assessment berhasil dihapus"}
+
+
+@router.get("/stats/user", response_model=dict[str, Any])
+async def get_user_assessment_stats(
+    session: AsyncSession = Depends(get_db_session),
+    user: User = Depends(require_roles(["student", "admin"])),
+) -> dict[str, Any]:
+    """
+    Get user's assessment statistics.
+
+    Returns:
+    - Total completed assessments
+    - Completed assessments per role
+    - Average score
+    """
+    from sqlalchemy import func, select
+    from src.infrastructure.db.models import Assessment, AssessmentStatus
+
+    # Total completed
+    stmt_total = (
+        select(func.count(Assessment.id))
+        .where(Assessment.owner_id == user.user_id)
+        .where(Assessment.status == AssessmentStatus.COMPLETED)
+    )
+    result = await session.execute(stmt_total)
+    total_completed = result.scalar() or 0
+
+    # By role
+    stmt_by_role = (
+        select(Assessment.role_slug, func.count(Assessment.id))
+        .where(Assessment.owner_id == user.user_id)
+        .where(Assessment.status == AssessmentStatus.COMPLETED)
+        .group_by(Assessment.role_slug)
+    )
+    result = await session.execute(stmt_by_role)
+    by_role = dict(result.all())
+
+    return {
+        "total_completed": total_completed,
+        "by_role": by_role,
+    }
 
 
 @router.post("/{assessment_id}/submit", response_model=AssessmentSubmitResponse)
