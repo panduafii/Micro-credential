@@ -207,9 +207,28 @@ def format_assessment_summary(
         )
     profile_parts.append(exp_text)
 
-    # Part 2: Tech preferences
-    if tech_prefs:
-        tech_text = f"You've expressed interest in learning **{tech_prefs}**."
+    # Part 2: Tech preferences - Critical for personalization
+    if tech_prefs and tech_prefs.strip():
+        # Parse tech preferences (may be comma-separated)
+        tech_list = [t.strip() for t in tech_prefs.split(",") if t.strip()]
+        if tech_list:
+            if len(tech_list) == 1:
+                tech_display = f"**{tech_list[0]}**"
+            elif len(tech_list) == 2:
+                tech_display = f"**{tech_list[0]}** and **{tech_list[1]}**"
+            else:
+                tech_display = ", ".join(f"**{t}**" for t in tech_list[:-1])
+                tech_display += f", and **{tech_list[-1]}**"
+
+            tech_text = f"You've expressed interest in learning {tech_display}."
+            profile_parts.append(tech_text)
+    else:
+        # User hasn't specified tech preferences - guide them
+        tech_text = (
+            "**Note:** You haven't specified which technologies you want to learn. "
+            "Identifying your learning goals (e.g., Python, Docker, AWS) will help us "
+            "provide more targeted course recommendations."
+        )
         profile_parts.append(tech_text)
 
     # Part 3: Learning preferences (duration + payment)
@@ -222,57 +241,121 @@ def format_assessment_summary(
         pref_text = "Your learning preferences: " + ", ".join(pref_items) + "."
         profile_parts.append(pref_text)
 
-    # Part 4: CONCLUSION - Why recommendations are suitable
-    if profile_pct >= 80 and overall_pct >= 60:
-        if tech_prefs:
+    # Part 4: READINESS ASSESSMENT & CONCLUSION
+    # Determine if user is ready for their desired tech or needs prerequisites
+    has_valid_tech_prefs = tech_prefs and tech_prefs.strip()
+
+    if has_valid_tech_prefs:
+        tech_lower = tech_prefs.lower()
+
+        # Define advanced topics that require strong fundamentals
+        advanced_topics = [
+            "kubernetes",
+            "k8s",
+            "microservices",
+            "machine learning",
+            "ml",
+            "deep learning",
+            "ai",
+            "artificial intelligence",
+            "docker",
+            "terraform",
+            "aws",
+            "azure",
+            "gcp",
+            "cloud",
+            "devops",
+            "kafka",
+            "redis",
+            "elasticsearch",
+            "graphql",
+        ]
+
+        # Define fundamental topics
+        fundamental_topics = [
+            "python",
+            "javascript",
+            "java",
+            "html",
+            "css",
+            "sql",
+            "git",
+            "api",
+            "rest",
+            "database",
+            "programming",
+        ]
+
+        is_advanced = any(adv in tech_lower for adv in advanced_topics)
+        is_fundamental = any(fund in tech_lower for fund in fundamental_topics)
+
+        # ADVANCED topics + LOW experience = Need prerequisites
+        if is_advanced and profile_pct < 50 and theoretical_pct < 60:
             conclusion = (
-                f"**Conclusion:** Based on your strong experience and interest in {tech_prefs}, "
-                "the recommended courses below are well-suited for advancing your skills. "
-                "These courses will help you deepen your expertise and explore specialized topics."
+                f"**Readiness Assessment:** Your interest in {tech_prefs} is excellent "
+                "for long-term career growth! However, these are advanced topics that "
+                "require solid programming fundamentals. "
+                "**Recommendation:** The courses below focus on building strong foundations "
+                f"(APIs, databases, backend basics). Master these first, then you'll be "
+                f"ready to dive into {tech_prefs}. Estimated timeline: 3-6 months of foundation "
+                "building before tackling advanced topics."
             )
-        else:
+
+        # ADVANCED topics + MODERATE experience = Can start with guided approach
+        elif is_advanced and profile_pct >= 50 and theoretical_pct >= 60:
             conclusion = (
-                "**Conclusion:** Based on your strong experience, the recommended courses "
-                "are well-suited for advancing your skills to the next level."
+                f"**Readiness Assessment:** You have a decent foundation to start exploring "
+                f"{tech_prefs}! Your theoretical knowledge ({theoretical_pct}%) shows you "
+                "understand core concepts. "
+                "**Recommendation:** The courses below include both foundational reinforcement "
+                f"and introductory {tech_prefs} content. Take them in sequence to build "
+                "confidence before diving into advanced implementations."
             )
-    elif profile_pct >= 60:
-        if tech_prefs:
-            conclusion = (
-                f"**Conclusion:** Given your moderate experience and interest in {tech_prefs}, "
-                "the recommended courses will help bridge your knowledge gaps. "
-                "Focus on building more projects while taking these courses."
-            )
-        else:
-            conclusion = (
-                "**Conclusion:** Given your moderate experience, the recommended courses "
-                "will help strengthen your skills through practical learning."
-            )
-    else:
-        if tech_prefs:
-            # Check if tech preference is advanced topic for a beginner
-            is_advanced = any(
-                adv in tech_prefs.lower()
-                for adv in ["kubernetes", "microservices", "ml", "machine learning", "ai", "docker"]
-            )
-            if is_advanced and theoretical_pct < 60:
+
+        # FUNDAMENTAL topics + ANY level = Good match
+        elif is_fundamental:
+            if profile_pct >= 60:
                 conclusion = (
-                    f"**Conclusion:** Your interest in {tech_prefs} is great for long-term goals! "
-                    "However, given your current experience level, the recommended courses "
-                    "focus on building strong fundamentals first. Once you master the basics, "
-                    f"you'll be better prepared to tackle {tech_prefs}."
+                    f"**Readiness Assessment:** Perfect match! Your experience level "
+                    f"and interest in {tech_prefs} align well. "
+                    "**Recommendation:** The courses below will deepen your expertise "
+                    "in these core technologies and introduce advanced patterns."
                 )
             else:
                 conclusion = (
-                    f"**Conclusion:** Based on your experience level and interest in {tech_prefs}, "
-                    "the recommended courses are designed to build your foundation step by step. "
-                    f"These will prepare you for more advanced {tech_prefs} topics in the future."
+                    f"**Readiness Assessment:** Great choice! {tech_prefs} are fundamental "
+                    "technologies that every developer should master. "
+                    "**Recommendation:** The courses below are designed for beginners "
+                    "and will build your skills step by step. Focus on hands-on practice "
+                    "alongside these courses."
                 )
+
+        # HIGH experience + ANY tech = Ready
+        elif profile_pct >= 80:
+            conclusion = (
+                f"**Readiness Assessment:** You're ready to pursue {tech_prefs}! "
+                "Your strong experience provides a solid base for learning new technologies. "
+                "**Recommendation:** The courses below match your goals and will help you "
+                "specialize quickly. Consider building projects as you learn."
+            )
+
+        # Default case
         else:
             conclusion = (
-                "**Conclusion:** Based on your current experience level, the recommended courses "
-                "are designed to build a strong foundation. Start with these beginner-friendly "
-                "courses and gradually progress to more advanced topics."
+                f"**Readiness Assessment:** You're on the right path to learning {tech_prefs}. "
+                "**Recommendation:** The courses below are curated based on your experience level "
+                "and learning goals. Start with foundational courses, then progressively tackle "
+                "more advanced topics."
             )
+
+    else:
+        # No tech preferences specified
+        conclusion = (
+            "**Recommendation:** Since you haven't specified your technology interests yet, "
+            "the courses below cover general fundamentals for the " + role_title + " role. "
+            "Once you identify specific technologies you want to learn, we can provide "
+            "more targeted recommendations that match your career goals."
+        )
     profile_parts.append(conclusion)
 
     profile_insight = " ".join(profile_parts)
