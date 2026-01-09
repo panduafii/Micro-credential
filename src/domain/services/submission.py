@@ -463,12 +463,17 @@ class SubmissionService:
                 }
 
         # Fallback: check if response has meaningful content
-        has_value = bool(response_data.get("value") or response_data.get("selected_option"))
+        # Get value from multiple possible keys
+        value_raw = (
+            response_data.get("value")
+            or response_data.get("selected_option")
+            or response_data.get("answer_text")
+            or ""
+        )
+        has_value = bool(value_raw and str(value_raw).strip())
 
         if has_value and expected_values:
-            value = (
-                response_data.get("value") or response_data.get("selected_option") or ""
-            ).lower()
+            value = str(value_raw).lower().strip()
             accepted = (
                 expected_values.get("accepted_values")
                 if isinstance(expected_values, dict)
@@ -542,7 +547,13 @@ class SubmissionService:
 
         # Handle simple text format: "X bulan dan Y project"
         if format_type == "text":
-            answer_text = response_data.get("answer_text", "")
+            # Try multiple keys to get the answer text
+            answer_text = (
+                response_data.get("answer_text")
+                or response_data.get("value")
+                or response_data.get("text")
+                or ""
+            )
             pattern = expected_values.get("pattern", r"(\d+) bulan dan (\d+) project")
             match = re.match(pattern, str(answer_text))
 
