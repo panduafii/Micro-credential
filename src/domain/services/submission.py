@@ -528,10 +528,63 @@ class SubmissionService:
         expected_values: dict,
         max_score: float,
     ) -> dict[str, Any]:
-        """Score a compound profile question with multiple fields."""
+        """Score a compound profile question with multiple fields.
+
+        Supports two formats:
+        1. Simple text: "X bulan dan Y project" (parsed via regex)
+        2. Object: {"months": "6-12", "projects": "3-5"} (legacy dropdown format)
+        """
+        import re
+
         scoring = expected_values.get("scoring", {})
         weights = expected_values.get("weight", {})
+        format_type = expected_values.get("format", "object")
 
+        # Handle simple text format: "X bulan dan Y project"
+        if format_type == "text":
+            answer_text = response_data.get("answer_text", "")
+            pattern = expected_values.get("pattern", r"(\d+) bulan dan (\d+) project")
+            match = re.match(pattern, str(answer_text))
+
+            if not match:
+                return {
+                    "score": 0,
+                    "max_score": max_score,
+                    "explanation": "Format jawaban tidak valid",
+                    "rules_applied": {"rule": "compound_text_parse_failed"},
+                }
+
+            months = int(match.group(1))
+            projects = int(match.group(2))
+
+            # Score using ranges
+            months_score = self._score_by_ranges(
+                months, scoring.get("months", {}).get("ranges", [])
+            )
+            projects_score = self._score_by_ranges(
+                projects, scoring.get("projects", {}).get("ranges", [])
+            )
+
+            months_weight = weights.get("months", 0.5)
+            projects_weight = weights.get("projects", 0.5)
+
+            total_score = (months_score * months_weight) + (projects_score * projects_weight)
+            score = (total_score / 100.0) * max_score
+
+            return {
+                "score": score,
+                "max_score": max_score,
+                "explanation": f"Pengalaman: {months} bulan, {projects} project",
+                "rules_applied": {
+                    "rule": "compound_text_scoring",
+                    "parsed": {"months": months, "projects": projects},
+                    "scores": {"months": months_score, "projects": projects_score},
+                    "weights": {"months": months_weight, "projects": projects_weight},
+                    "total_raw": total_score,
+                },
+            }
+
+        # Legacy object format: {"months": "6-12", "projects": "3-5"}
         total_score = 0.0
         details = {}
 
@@ -560,6 +613,13 @@ class SubmissionService:
                 "total_raw": total_score,
             },
         }
+
+    def _score_by_ranges(self, value: int, ranges: list[dict]) -> float:
+        """Score a numeric value based on defined ranges."""
+        for r in ranges:
+            if r.get("min", 0) <= value <= r.get("max", 999):
+                return r.get("score", 0)
+        return 0
 
     async def _create_async_jobs(
         self,
