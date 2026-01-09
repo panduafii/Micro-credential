@@ -76,8 +76,9 @@ class TestFusionServiceSummary:
             degraded=False,
         )
 
-        # Should mention areas for development
-        assert "development" in summary.lower() or "areas" in summary.lower()
+        # Should mention areas for development (in English)
+        # "Thank you" = for low score message, "strengthen" = needs to strengthen foundation
+        assert "thank you" in summary.lower() or "strengthen" in summary.lower()
 
     def test_generate_summary_medium_score(self, fusion_service):
         """Test summary for medium scoring assessment."""
@@ -102,7 +103,7 @@ class TestFusionServiceSummary:
             degraded=False,
         )
 
-        # Should be balanced - "good" message
+        # Should be balanced - "good" message (now in Indonesian: "Good job!")
         assert "good" in summary.lower()
 
     def test_generate_summary_includes_breakdown(self, fusion_service):

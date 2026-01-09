@@ -44,30 +44,30 @@ def format_assessment_summary(
     tech_prefs = profile_signals.get("tech-preferences", "")
 
     # Build personalized greeting with name
-    name_greeting = f"**Halo, {user_name}!** " if user_name else ""
+    name_greeting = f"**Hello, {user_name}!** " if user_name else ""
 
     # Opening headline based on score with personalization
     if overall_pct >= 80:
         headline = (
-            f"{name_greeting}**Excellent work!** Kamu menunjukkan kemampuan yang kuat "
-            f"untuk role {role_title} dengan skor keseluruhan **{overall_pct}%**."
+            f"{name_greeting}**Excellent work!** You demonstrated strong capabilities "
+            f"for the {role_title} role with an overall score of **{overall_pct}%**."
         )
         if tech_prefs:
-            headline += f" Minatmu untuk mempelajari **{tech_prefs}** sangat tepat untuk tahap ini."
+            headline += f" Your interest in learning **{tech_prefs}** is perfect for this stage."
     elif overall_pct >= 60:
         headline = (
-            f"{name_greeting}**Good job!** Penilaianmu untuk role {role_title} menunjukkan "
-            f"fondasi yang solid. Skor keseluruhan: **{overall_pct}%**."
+            f"{name_greeting}**Good job!** Your assessment for the {role_title} role shows "
+            f"a solid foundation. Overall score: **{overall_pct}%**."
         )
         if tech_prefs:
-            headline += f" Fokusmu pada **{tech_prefs}** akan membantu meningkatkan skillmu."
+            headline += f" Your focus on **{tech_prefs}** will help improve your skills."
     else:
         headline = (
-            f"{name_greeting}**Terima kasih telah menyelesaikan assessment {role_title}.** "
-            f"Skor keseluruhan: **{overall_pct}%**."
+            f"{name_greeting}**Thank you for completing the {role_title} assessment.** "
+            f"Overall score: **{overall_pct}%**."
         )
         if tech_prefs:
-            headline += f" Keinginanmu untuk belajar **{tech_prefs}** adalah langkah yang baik!"
+            headline += f" Your desire to learn **{tech_prefs}** is a great step forward!"
 
     lines.append(headline)
     lines.append("")
@@ -80,41 +80,45 @@ def format_assessment_summary(
     if theoretical_pct >= 80:
         if tech_prefs:
             tech_insight = (
-                f"Pemahaman teorimu sangat baik! Kamu siap untuk masalah dunia nyata. "
-                f"Dengan minatmu di **{tech_prefs}**, fokuskan pada kursus advanced "
-                f"yang memperdalam keahlian tersebut."
+                "Your theoretical understanding is excellent! "
+                "You're ready for real-world challenges. "
+                f"With your interest in **{tech_prefs}**, focus on advanced courses "
+                "that deepen your expertise in those areas."
             )
         else:
             tech_insight = (
-                "Pemahaman teorimu sangat baik! Kamu siap untuk masalah dunia nyata. "
-                "Pertimbangkan kursus advanced untuk memperdalam keahlian di area spesialisasi."
+                "Your theoretical understanding is excellent! "
+                "You're ready for real-world challenges. "
+                "Consider advanced courses to deepen your expertise in specialization areas."
             )
     elif theoretical_pct >= 60:
         if tech_prefs:
             tech_insight = (
-                f"Fondasi teorimu cukup solid. Untuk meningkatkan skill di **{tech_prefs}**, "
-                f"fokuskan pada area yang skormu lebih rendah dan praktikkan lewat "
-                f"proyek hands-on. Kursus di bawah menargetkan gap pengetahuanmu."
+                "Your theoretical foundation is solid. "
+                f"To improve your skills in **{tech_prefs}**, "
+                "focus on areas where you scored lower and practice through "
+                "hands-on projects. The courses below target your knowledge gaps."
             )
         else:
             tech_insight = (
-                "Fondasi teorimu cukup solid. Untuk meningkatkan lebih lanjut, "
-                "fokuskan pada area yang skormu lebih rendah dan praktikkan lewat proyek "
-                "hands-on. Kursus di bawah menargetkan gap pengetahuanmu."
+                "Your theoretical foundation is solid. To improve further, "
+                "focus on areas where you scored lower and practice through hands-on "
+                "projects. The courses below target your knowledge gaps."
             )
     else:
         if tech_prefs:
             tech_insight = (
-                f"Fondasi teorimu perlu diperkuat. Meskipun kamu ingin belajar "
-                f"**{tech_prefs}**, mulailah dengan kursus fundamental yang mencakup "
-                f"dasar-dasar, lalu bangun dengan latihan praktis. Jangan terburu-buru - "
-                f"menguasai dasar adalah kunci kesuksesan jangka panjang."
+                "Your theoretical foundation needs strengthening. "
+                f"Although you want to learn **{tech_prefs}**, start with fundamental "
+                "courses that cover the basics, then build up with practical exercises. "
+                "Don't rush - mastering the fundamentals is key to long-term success."
             )
         else:
             tech_insight = (
-                "Fondasi teorimu perlu diperkuat. Mulailah dengan kursus beginner-friendly "
-                "yang mencakup fundamental, lalu bangun dengan latihan praktis. "
-                "Jangan terburu-buru - menguasai dasar adalah kunci kesuksesan jangka panjang."
+                "Your theoretical foundation needs strengthening. "
+                "Start with beginner-friendly courses that cover the fundamentals, "
+                "then build up with practical exercises. "
+                "Don't rush - mastering the fundamentals is key to long-term success."
             )
     lines.append(f"• **Technical Knowledge:** {theoretical_pct}%")
     lines.append(f"  {tech_insight}")
@@ -126,52 +130,52 @@ def format_assessment_summary(
 
     # Map duration preference to readable text
     duration_text_map = {
-        "short": "kursus singkat",
-        "medium": "kursus menengah",
-        "long": "kursus lengkap/komprehensif",
-        "any": "berbagai durasi",
+        "short": "short courses",
+        "medium": "medium-length courses",
+        "long": "comprehensive/long courses",
+        "any": "various durations",
     }
-    duration_text = duration_text_map.get(duration_pref, "berbagai durasi")
+    duration_text = duration_text_map.get(duration_pref, "various durations")
 
     # Map payment preference to readable text
     payment_text_map = {
-        "free": "gratis",
-        "paid": "berbayar (premium)",
-        "any": "gratis maupun berbayar",
+        "free": "free",
+        "paid": "paid (premium)",
+        "any": "both free and paid",
     }
-    payment_text = payment_text_map.get(payment_pref, "gratis maupun berbayar")
+    payment_text = payment_text_map.get(payment_pref, "both free and paid")
 
     # Build personalized profile insight based on scores and preferences
     if profile_pct >= 80:
         if tech_prefs:
             profile_insight = (
-                f"Berdasarkan pengalamanmu yang solid dan skor profil **{profile_pct}%**, "
-                f"kamu sudah memiliki fondasi yang kuat untuk role {role_title}. "
-                f"Keinginanmu untuk mempelajari **{tech_prefs}** sangat tepat dan efektif "
-                f"karena sesuai dengan kompetensimu saat ini. "
-                f"Dengan preferensi {duration_text} dan opsi {payment_text}, "
-                f"saya merekomendasikan kursus advanced untuk memperdalam keahlianmu."
+                f"Based on your solid experience and profile score of **{profile_pct}%**, "
+                f"you have a strong foundation for the {role_title} role. "
+                f"Your desire to learn **{tech_prefs}** is well-suited and effective "
+                f"given your current competencies. "
+                f"With your preference for {duration_text} and {payment_text} options, "
+                f"I recommend advanced courses to deepen your expertise."
             )
         else:
             profile_insight = (
-                f"Pengalamanmu sangat sesuai dengan kebutuhan {role_title}. "
-                f"Skor profil **{profile_pct}%** menunjukkan kesiapan untuk level lanjutan. "
-                f"Fokuskan pembelajaran pada spesialisasi yang lebih mendalam."
+                f"Your experience aligns well with the {role_title} requirements. "
+                f"Profile score of **{profile_pct}%** indicates readiness for advanced level. "
+                f"Focus your learning on deeper specialization areas."
             )
     elif profile_pct >= 60:
         if tech_prefs:
             profile_insight = (
-                f"Berdasarkan hasil profilmu ({profile_pct}%), "
-                f"kamu memiliki pengalaman yang cukup namun masih ada ruang untuk berkembang. "
-                f"Keinginanmu untuk belajar **{tech_prefs}** cukup efektif. "
-                f"Dengan preferensi {duration_text} dan opsi {payment_text}, "
-                f"saya merekomendasikan kursus intermediate yang fokus pada praktik hands-on "
-                f"untuk memperkuat skill {tech_prefs}."
+                f"Based on your profile results ({profile_pct}%), "
+                f"you have adequate experience but there's still room for growth. "
+                f"Your desire to learn **{tech_prefs}** is quite effective. "
+                f"With your preference for {duration_text} and {payment_text} options, "
+                f"I recommend intermediate courses focusing on hands-on practice "
+                f"to strengthen your {tech_prefs} skills."
             )
         else:
             profile_insight = (
-                f"Skor profil {profile_pct}% menunjukkan pengalaman yang relevan. "
-                f"Fokus pada kursus yang memberikan praktik langsung untuk memperdalam kompetensi."
+                f"Profile score of {profile_pct}% indicates relevant experience. "
+                f"Focus on courses that provide hands-on practice to deepen your competencies."
             )
     else:
         # User has weak foundation - prioritize missed topics first!
@@ -181,10 +185,10 @@ def format_assessment_summary(
             if len(missed_topics) == 1:
                 missed_topics_text = f"**{missed_topics[0]}**"
             elif len(missed_topics) == 2:
-                missed_topics_text = f"**{missed_topics[0]}** dan **{missed_topics[1]}**"
+                missed_topics_text = f"**{missed_topics[0]}** and **{missed_topics[1]}**"
             else:
                 joined = ", ".join(missed_topics[:-1])
-                missed_topics_text = f"**{joined}**, dan **{missed_topics[-1]}**"
+                missed_topics_text = f"**{joined}**, and **{missed_topics[-1]}**"
 
         if tech_prefs:
             # Check if tech preference matches role or is realistic for beginner
@@ -196,62 +200,65 @@ def format_assessment_summary(
             if missed_topics and is_advanced_topic and theoretical_pct < 60:
                 # User wants advanced topic but has weak foundation AND missed topics
                 profile_insight = (
-                    f"Berdasarkan hasil tesmu (teori: {theoretical_pct}%, profil: {profile_pct}%), "
-                    f"kamu masih perlu memperkuat beberapa area dasar untuk role {role_title}. "
-                    f"Hasil tesmu menunjukkan kamu perlu memperkuat pemahaman tentang "
-                    f"{missed_topics_text} terlebih dahulu. "
-                    f"Keinginanmu untuk belajar **{tech_prefs}** sangat baik, namun sebaiknya "
-                    f"pelajari dulu {missed_topics_text}, baru kemudian lanjut ke {tech_prefs}. "
-                    f"Dengan preferensi {duration_text} ({payment_text}), "
-                    f"saya merekomendasikan kursus yang menguatkan fondasi dasarmu."
+                    f"Based on your test results (theory: {theoretical_pct}%, "
+                    f"profile: {profile_pct}%), you still need to strengthen some "
+                    f"fundamental areas for the {role_title} role. "
+                    f"Your results show you need to strengthen your understanding of "
+                    f"{missed_topics_text} first. "
+                    f"Your desire to learn **{tech_prefs}** is great, but I recommend "
+                    f"learning {missed_topics_text} first, then progressing to {tech_prefs}. "
+                    f"With your preference for {duration_text} ({payment_text}), "
+                    f"I recommend courses that strengthen your foundational knowledge."
                 )
             elif missed_topics:
                 # User has missed topics, recommend fixing those first
                 profile_insight = (
-                    f"Berdasarkan skor profilmu ({profile_pct}%) dan tes teori "
-                    f"({theoretical_pct}%), kamu sedang dalam tahap membangun fondasi "
-                    f"sebagai {role_title}. Hasil tesmu menunjukkan kamu perlu "
-                    f"memperkuat pemahaman tentang {missed_topics_text}. "
-                    f"Keinginanmu untuk belajar **{tech_prefs}** adalah langkah yang baik! "
-                    f"Saya merekomendasikan: pertama kuatkan dulu {missed_topics_text}, "
-                    f"lalu lanjut ke {tech_prefs}. Dengan preferensi {duration_text} dan opsi "
-                    f"{payment_text}, pilih kursus yang membangun fondasi kokoh."
+                    f"Based on your profile score ({profile_pct}%) and theory test "
+                    f"({theoretical_pct}%), you're in the stage of building your foundation "
+                    f"as a {role_title}. Your results show you need to "
+                    f"strengthen your understanding of {missed_topics_text}. "
+                    f"Your desire to learn **{tech_prefs}** is a good step! "
+                    f"I recommend: first strengthen {missed_topics_text}, "
+                    f"then proceed to {tech_prefs}. With your preference for {duration_text} and "
+                    f"{payment_text} options, choose courses that build a solid foundation."
                 )
             elif is_advanced_topic and theoretical_pct < 60:
                 # User wants advanced topic but has weak foundation (no specific missed topics)
                 profile_insight = (
-                    f"Berdasarkan hasil tesmu (teori: {theoretical_pct}%, profil: {profile_pct}%), "
-                    f"kamu masih dalam tahap membangun fondasi untuk role {role_title}. "
-                    f"Keinginanmu untuk belajar **{tech_prefs}** mungkin **kurang efektif** "
-                    f"karena memerlukan pemahaman dasar yang kuat terlebih dahulu. "
-                    f"Saya merekomendasikan kursus fundamental dulu, lalu bertahap menuju "
-                    f"{tech_prefs}. Dengan preferensi {duration_text} ({payment_text}), "
-                    f"pilih kursus beginner-friendly."
+                    f"Based on your test results (theory: {theoretical_pct}%, "
+                    f"profile: {profile_pct}%), you're still in the stage of building "
+                    f"your foundation for the {role_title} role. "
+                    f"Your desire to learn **{tech_prefs}** may be **less effective** "
+                    f"as it requires a strong foundational understanding first. "
+                    f"I recommend starting with fundamental courses first, then gradually "
+                    f"progressing to {tech_prefs}. With your preference for {duration_text} "
+                    f"({payment_text}), choose beginner-friendly courses."
                 )
             else:
                 profile_insight = (
-                    f"Berdasarkan skor profilmu ({profile_pct}%) dan tes teori "
-                    f"({theoretical_pct}%), kamu sedang dalam tahap awal perjalanan "
-                    f"sebagai {role_title}. Keinginanmu untuk belajar **{tech_prefs}** "
-                    f"adalah langkah yang baik. Dengan preferensi {duration_text} dan opsi "
-                    f"{payment_text}, saya merekomendasikan kursus dasar yang memberikan "
-                    f"praktik hands-on untuk membangun fondasi yang kuat."
+                    f"Based on your profile score ({profile_pct}%) and theory test "
+                    f"({theoretical_pct}%), you're in the early stages of your journey "
+                    f"as a {role_title}. Your desire to learn **{tech_prefs}** "
+                    f"is a good step. With your preference for {duration_text} and "
+                    f"{payment_text} options, I recommend foundational courses that provide "
+                    f"hands-on practice to build a strong foundation."
                 )
         else:
             # No tech preferences specified
             if missed_topics:
                 profile_insight = (
-                    f"Skor profil {profile_pct}% menunjukkan kamu masih di awal perjalanan "
-                    f"{role_title}. Hasil tesmu menunjukkan kamu perlu memperkuat "
-                    f"pemahaman tentang {missed_topics_text}. "
-                    f"Mulailah dengan kursus yang membahas topik tersebut, "
-                    f"lalu bangun portfolio dengan proyek nyata untuk memperkuat pengalaman."
+                    f"Profile score of {profile_pct}% indicates you're still at the "
+                    f"beginning of your {role_title} journey. Your results show you need "
+                    f"to strengthen your understanding of {missed_topics_text}. "
+                    f"Start with courses covering those topics, "
+                    f"then build your portfolio with real projects to strengthen experience."
                 )
             else:
                 profile_insight = (
-                    f"Skor profil {profile_pct}% menunjukkan kamu masih di awal perjalanan "
-                    f"{role_title}. Mulailah dengan kursus foundational yang memberikan praktik "
-                    f"langsung. Bangun portfolio dengan proyek nyata untuk memperkuat pengalaman."
+                    f"Profile score of {profile_pct}% indicates you're still at the "
+                    f"beginning of your {role_title} journey. Start with foundational "
+                    f"courses that provide hands-on practice. Build your portfolio with "
+                    f"real projects to strengthen your experience."
                 )
 
     lines.append(f"• **Profile Alignment:** {profile_pct}%")
@@ -262,24 +269,24 @@ def format_assessment_summary(
     if has_essay:
         if essay_pct >= 80:
             essay_insight = (
-                "Kemampuan komunikasi dan problem-solving yang sangat baik! "
-                "Jawabanmu menunjukkan artikulasi konsep teknis yang jelas, penalaran logis, "
-                "dan kemampuan menjelaskan ide kompleks secara efektif. Ini skill berharga "
-                "untuk kolaborasi dan peran technical leadership."
+                "Excellent communication and problem-solving skills! "
+                "Your answers demonstrate clear articulation of technical concepts, "
+                "logical reasoning, and the ability to explain complex ideas effectively. "
+                "These are valuable skills for collaboration and technical leadership roles."
             )
         elif essay_pct >= 60:
             essay_insight = (
-                "Penjelasanmu cukup baik dengan pemahaman yang jelas. "
-                "Untuk meningkatkan, pertimbangkan menambahkan contoh lebih spesifik, "
-                "detail teknis lebih dalam, dan penjelasan yang lebih terstruktur. "
-                "Praktik menulis dokumentasi teknis dapat membantu meningkatkan skill ini."
+                "Your explanations are quite good with clear understanding. "
+                "To improve, consider adding more specific examples, "
+                "deeper technical details, and more structured explanations. "
+                "Practicing technical documentation writing can help enhance this skill."
             )
         else:
             essay_insight = (
-                "Perlu meningkatkan kemampuan mengartikulasikan konsep teknis. "
-                "Fokuskan pada mengorganisir pikiranmu secara logis, memberikan contoh "
-                "spesifik, dan menjelaskan 'mengapa' di balik keputusan teknis. "
-                "Membaca blog teknis dan dokumentasi dapat membantu meningkatkan skill ini."
+                "There's room to improve your ability to articulate technical concepts. "
+                "Focus on organizing your thoughts logically, providing specific "
+                "examples, and explaining the 'why' behind technical decisions. "
+                "Reading technical blogs and documentation can help improve this skill."
             )
         lines.append(f"• **Essay Quality:** {essay_pct}%")
         lines.append(f"  {essay_insight}")
@@ -292,69 +299,71 @@ def format_assessment_summary(
 
     has_preferences = tech_prefs or duration_pref != "any" or payment_pref != "any"
     if has_preferences:
-        lines.append("**Personalisasi Rekomendasi**")
+        lines.append("**Personalized Recommendations**")
         lines.append("")
-        lines.append("Berdasarkan preferensi yang kamu pilih:")
+        lines.append("Based on your selected preferences:")
 
         if tech_prefs:
-            lines.append(f"• **Topik yang ingin dipelajari:** {tech_prefs}")
+            lines.append(f"• **Topics you want to learn:** {tech_prefs}")
 
         if duration_pref != "any":
             duration_text = {
-                "short": "Kursus singkat (< 2 jam)",
-                "medium": "Kursus menengah (2-10 jam)",
-                "long": "Kursus lengkap (> 10 jam)",
+                "short": "Short courses (< 2 hours)",
+                "medium": "Medium courses (2-10 hours)",
+                "long": "Comprehensive courses (> 10 hours)",
             }.get(duration_pref, duration_pref)
-            lines.append(f"• **Durasi konten:** {duration_text}")
+            lines.append(f"• **Content duration:** {duration_text}")
 
         if payment_pref != "any":
-            payment_text = "Gratis" if payment_pref == "free" else "Berbayar"
-            lines.append(f"• **Preferensi pembayaran:** {payment_text}")
+            payment_text = "Free" if payment_pref == "free" else "Paid"
+            lines.append(f"• **Payment preference:** {payment_text}")
 
         lines.append("")
-        lines.append("Rekomendasi kursus di bawah telah diprioritaskan berdasarkan preferensimu.")
+        lines.append(
+            "The course recommendations below have been prioritized based on your preferences."
+        )
         lines.append("")
 
     # Personalized learning path recommendations
     recs = list(recommendations)
     if recs:
         lines.append("")
-        lines.append("**Learning Path yang Dipersonalisasi**")
+        lines.append("**Personalized Learning Path**")
         lines.append("")
 
         # Add personalized intro based on overall performance and tech preferences
         if overall_pct >= 80:
             if tech_prefs:
                 path_intro = (
-                    f"Berdasarkan performa kuat dan minatmu di **{tech_prefs}**, "
-                    f"kursus advanced ini akan membantumu mencapai level expert di {role_title}:"
+                    f"Based on your strong performance and interest in **{tech_prefs}**, "
+                    f"these advanced courses will help you reach expert level as a {role_title}:"
                 )
             else:
                 path_intro = (
-                    f"Berdasarkan performa kuat, kursus advanced ini akan membantumu "
-                    f"spesialisasi dan mencapai level expert di {role_title}:"
+                    f"Based on your strong performance, these advanced courses will help you "
+                    f"specialize and reach expert level as a {role_title}:"
                 )
         elif overall_pct >= 60:
             if tech_prefs:
                 path_intro = (
-                    f"Untuk berkembang dari level intermediate-mu dan menguasai **{tech_prefs}**, "
-                    f"kursus ini menargetkan area pertumbuhanmu:"
+                    f"To grow from your intermediate level and master **{tech_prefs}**, "
+                    f"these courses target your growth areas:"
                 )
             else:
                 path_intro = (
-                    "Untuk berkembang dari level intermediate-mu, kursus ini menargetkan "
-                    "area pertumbuhanmu dan membangun di atas kekuatan yang ada:"
+                    "To grow from your intermediate level, these courses target "
+                    "your growth areas and build on your existing strengths:"
                 )
         else:
             if tech_prefs:
                 path_intro = (
-                    f"Untuk membangun fondasi kuat menuju **{tech_prefs}**, mulailah dengan "
-                    f"kursus ini yang sesuai dengan level-mu dan bertahap mengembangkan skillmu:"
+                    f"To build a strong foundation towards **{tech_prefs}**, start with "
+                    f"these courses suited to your level that will gradually develop your skills:"
                 )
             else:
                 path_intro = (
-                    "Untuk membangun fondasi kuat, mulailah dengan kursus ini yang sesuai "
-                    "dengan level-mu dan secara bertahap mengembangkan skillmu:"
+                    "To build a strong foundation, start with these courses suited "
+                    "to your level that will gradually develop your skills:"
                 )
 
         lines.append(path_intro)
@@ -365,7 +374,7 @@ def format_assessment_summary(
 
             # Add comprehensive explanation
             if rec.match_reason:
-                lines.append(f"   • Alasan rekomendasi: {rec.match_reason}")
+                lines.append(f"   • Recommendation reason: {rec.match_reason}")
 
             # Add personalization match info
             metadata = rec.course_metadata or {}
@@ -377,40 +386,40 @@ def format_assessment_summary(
                 tech_keywords = [t.strip().lower() for t in tech_prefs.replace(",", " ").split()]
                 matched_techs = [t for t in tech_keywords if t in course_title_lower]
                 if matched_techs:
-                    personalization_matches.append("Sesuai minat: " + ", ".join(matched_techs))
+                    personalization_matches.append("Matches interest: " + ", ".join(matched_techs))
 
             # Check duration match
             level = metadata.get("level", "").lower()
             if duration_pref == "short" and "beginner" in level:
-                personalization_matches.append("Cocok untuk pemula (durasi singkat)")
+                personalization_matches.append("Suitable for beginners (short duration)")
             elif duration_pref == "medium" and "intermediate" in level:
-                personalization_matches.append("Level menengah sesuai preferensi")
+                personalization_matches.append("Intermediate level matches preference")
             elif duration_pref == "long" and ("advanced" in level or "all levels" in level):
-                personalization_matches.append("Konten lengkap/advanced sesuai preferensi")
+                personalization_matches.append("Comprehensive/advanced content matches preference")
 
             # Check payment match
             is_paid = str(metadata.get("is_paid", "True")).lower() == "true"
             if payment_pref == "free" and not is_paid:
-                personalization_matches.append("Gratis sesuai preferensi")
+                personalization_matches.append("Free as preferred")
             elif payment_pref == "paid" and is_paid:
-                personalization_matches.append("Kursus premium sesuai preferensi")
+                personalization_matches.append("Premium course as preferred")
 
             if personalization_matches:
-                lines.append("   • Kecocokan preferensi: " + "; ".join(personalization_matches))
+                lines.append("   • Preference match: " + "; ".join(personalization_matches))
 
             # Add course metadata for better understanding
             if level:
-                lines.append(f"   • Tingkat kesulitan: {level.title()}")
+                lines.append(f"   • Difficulty level: {level.title()}")
 
             # Add relevance with interpretation
             rel_score = rec.relevance_score
             if rel_score >= 0.8:
-                rel_text = f"{rel_score:.2f}/1.0 (Sangat Relevan)"
+                rel_text = f"{rel_score:.2f}/1.0 (Highly Relevant)"
             elif rel_score >= 0.6:
-                rel_text = f"{rel_score:.2f}/1.0 (Relevan)"
+                rel_text = f"{rel_score:.2f}/1.0 (Relevant)"
             else:
-                rel_text = f"{rel_score:.2f}/1.0 (Cukup Relevan)"
-            lines.append(f"   • Skor kecocokan: {rel_text}")
+                rel_text = f"{rel_score:.2f}/1.0 (Somewhat Relevant)"
+            lines.append(f"   • Match score: {rel_text}")
 
             lines.append("")
 
