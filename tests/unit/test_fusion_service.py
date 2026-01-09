@@ -130,7 +130,7 @@ class TestFusionServiceSummary:
         )
 
         assert "Score Breakdown" in summary
-        assert "Technical Knowledge" in summary
+        assert "Theory" in summary
 
     def test_generate_summary_with_degraded_notice(self, fusion_service):
         """Test summary includes degraded mode notice."""
