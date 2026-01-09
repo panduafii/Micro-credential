@@ -27,6 +27,7 @@ from src.infrastructure.db.models import (
     Recommendation,
     RecommendationItem,
     Score,
+    UserModel,
 )
 
 if TYPE_CHECKING:
@@ -133,6 +134,7 @@ class FusionService:
         degraded: bool,
         profile_signals: dict | None = None,
         missed_topics: list[str] | None = None,
+        user_name: str | None = None,
     ) -> str:
         """Generate narrative summary from scores and recommendations."""
         return format_assessment_summary(
@@ -146,7 +148,14 @@ class FusionService:
             degraded=degraded,
             profile_signals=profile_signals,
             missed_topics=missed_topics,
+            user_name=user_name,
         )
+
+    async def _get_user_name(self, owner_id: str) -> str | None:
+        """Get user's full name by owner_id."""
+        stmt = select(UserModel.full_name).where(UserModel.id == owner_id)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def _extract_profile_signals(self, assessment_id: str) -> dict:
         """Extract profile signals from assessment responses.
@@ -187,7 +196,19 @@ class FusionService:
         return signals
 
     async def _extract_missed_topics(self, assessment_id: str) -> list[str]:
-        """Extract topics from questions that scored poorly (< 60%)."""
+        """Extract topics from THEORETICAL/ESSAY questions that scored poorly (< 60%).
+
+        Only extracts topics from non-profile questions to avoid showing
+        dimension names like 'experience-level' as missed topics.
+        """
+        # Profile dimensions to exclude from missed topics
+        profile_dimensions = {
+            "experience-level",
+            "tech-preferences",
+            "content-duration",
+            "payment-preference",
+        }
+
         stmt = (
             select(Score, AssessmentQuestionSnapshot)
             .join(
@@ -204,11 +225,17 @@ class FusionService:
             ratio = score.score / score.max_score
             if ratio >= 0.6:
                 continue
-            # Get topic/dimension from metadata
+
+            # Skip profile questions - they don't have technical topics
+            if snapshot.question_type == QuestionType.PROFILE:
+                continue
+
+            # Get topic/dimension from metadata (only if not a profile dimension)
             dimension = (snapshot.metadata_ or {}).get("dimension")
-            if dimension:
+            if dimension and dimension not in profile_dimensions:
                 missed.append(str(dimension))
-            # Also extract from prompt for more context
+
+            # Extract key topics from prompt for more context
             prompt = snapshot.prompt or ""
             prompt_lower = prompt.lower()
             # Extract key topics from prompt
@@ -288,10 +315,13 @@ class FusionService:
         # Extract missed topics (areas where user needs improvement)
         missed_topics = await self._extract_missed_topics(assessment_id)
 
+        # Get user's name for personalized greeting
+        user_name = await self._get_user_name(assessment.owner_id)
+
         # Generate summary with personalization and missed topics
         role_title = assessment.role.name if assessment.role else assessment.role_slug
         summary = self._generate_summary(
-            role_title, breakdown, items, degraded, profile_signals, missed_topics
+            role_title, breakdown, items, degraded, profile_signals, missed_topics, user_name
         )
 
         # Calculate processing duration
