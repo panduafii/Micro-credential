@@ -90,7 +90,8 @@ async def process_fusion_job(assessment_id: str) -> None:
                     print("\n   Score Breakdown:")
                     for section, data in rec.score_breakdown.items():
                         if isinstance(data, dict) and "percentage" in data:
-                            print(f"     {section}: {data["percentage"]:.1f}%")
+                            pct = data["percentage"]
+                            print(f"     {section}: {pct:.1f}%")
 
                 # Show first part of summary
                 if rec.summary:
