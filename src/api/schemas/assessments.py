@@ -15,14 +15,22 @@ class AssessmentQuestionOption(BaseModel):
     text: str = Field(..., description="Option text")
 
 
+class CompoundQuestionOptions(BaseModel):
+    """Options for compound profile questions (e.g., Q7 with months + projects)"""
+
+    type: str = Field(default="compound", description="Must be 'compound'")
+    fields: list[dict] = Field(..., description="List of field definitions")
+    display_format: str | None = Field(None, description="Format string for display")
+
+
 class AssessmentQuestion(BaseModel):
     id: str
     sequence: int
     question_type: str
     prompt: str
     difficulty: str | None = Field(None, description="Question difficulty: easy, medium, hard")
-    options: list[AssessmentQuestionOption] | None = Field(
-        None, description="Options for multiple choice questions"
+    options: list[AssessmentQuestionOption] | CompoundQuestionOptions | dict | None = Field(
+        None, description="Options for multiple choice or compound questions"
     )
     metadata: dict | None = None
     expected_values: dict | None = Field(
