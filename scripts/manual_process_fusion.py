@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
-"""Manual script to process pending fusion job for an assessment."""
+"""Manual script to process pending fusion job for an assessment.
+
+Usage:
+    export RENDER_DATABASE_URL="postgresql+asyncpg://user:pass@host/db"
+    poetry run python scripts/manual_process_fusion.py
+"""
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -22,8 +28,14 @@ async def main():
     """Process fusion job for specific assessment."""
     assessment_id = "b45c3208-1da1-47af-a6a5-129b7a4e9ec3"
 
+    # Get database URL from environment
+    prod_url = os.getenv("RENDER_DATABASE_URL")
+    if not prod_url:
+        print("Error: RENDER_DATABASE_URL environment variable not set")
+        print("Usage: export RENDER_DATABASE_URL='postgresql+asyncpg://user:pass@host/db'")
+        sys.exit(1)
+
     # Create async engine with production DB
-    prod_url = "postgresql+asyncpg://microcred_user:3i1doEdivimrYo1RaXr6ANlJE7il4Pfb@dpg-d59hv62li9vc73al72ug-a.singapore-postgres.render.com/microcred"
     engine = create_async_engine(prod_url, echo=True)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 

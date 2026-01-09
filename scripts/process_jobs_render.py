@@ -3,10 +3,12 @@
 Process assessment jobs on Render production database.
 
 Usage:
+    export RENDER_DATABASE_URL="postgresql+asyncpg://user:pass@host/db"
     poetry run python scripts/process_jobs_render.py <assessment_id>
 """
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -19,8 +21,12 @@ from sqlalchemy.orm import sessionmaker
 from src.domain.services.fusion import FusionService
 from src.infrastructure.db.models import AsyncJob, JobStatus, JobType
 
-# Render production database URL
-RENDER_DB_URL = "postgresql+asyncpg://microcred_user:3i1doEdivimrYo1RaXr6ANlJE7il4Pfb@dpg-d59hv62li9vc73al72ug-a.singapore-postgres.render.com/microcred"
+# Get database URL from environment
+RENDER_DB_URL = os.getenv("RENDER_DATABASE_URL")
+if not RENDER_DB_URL:
+    print("Error: RENDER_DATABASE_URL environment variable not set")
+    print("Usage: export RENDER_DATABASE_URL='postgresql+asyncpg://user:pass@host/db'")
+    sys.exit(1)
 
 
 async def process_fusion_job(assessment_id: str) -> None:
