@@ -7,6 +7,7 @@ Can be upgraded to Chroma/PGVector for production.
 
 from __future__ import annotations
 
+import ast
 import csv
 import math
 import re
@@ -29,6 +30,10 @@ from src.infrastructure.db.models import (
     Recommendation,
     RecommendationItem,
     Score,
+)
+from src.infrastructure.repositories.course_enrichment import (
+    CourseEnricher,
+    EnrichedCourseMetadata,
 )
 
 if TYPE_CHECKING:
@@ -82,6 +87,20 @@ ROLE_KEYWORDS: dict[str, list[str]] = {
         "deep learning",
         "ai",
         "analytics",
+    ],
+    "data-analyst": [
+        "sql",
+        "excel",
+        "power bi",
+        "tableau",
+        "data analysis",
+        "data analytics",
+        "statistics",
+        "python",
+        "pandas",
+        "visualization",
+        "dashboard",
+        "business intelligence",
     ],
     "devops-engineer": [
         "docker",
@@ -173,9 +192,10 @@ class RAGService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self._courses: list[dict] | None = None
+        self._enriched_courses: dict[str, EnrichedCourseMetadata] = {}  # Cache enriched metadata
 
     def _load_courses(self) -> list[dict]:
-        """Load courses from CSV file."""
+        """Load courses from CSV file and enrich with comprehensive metadata."""
         if self._courses is not None:
             return self._courses
 
@@ -184,9 +204,24 @@ class RAGService:
             with open(COURSES_CSV_PATH, encoding="utf-8") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
+                    # Legacy annotation for backward compatibility
                     self._annotate_course(row)
+
+                    # NEW: Enrich course with comprehensive metadata
+                    enriched = CourseEnricher.enrich_course(row)
+                    self._enriched_courses[enriched.course_id] = enriched
+
+                    # Store enriched metadata in course dict for easy access
+                    row["_enriched"] = enriched
+
                     courses.append(row)
             self._courses = courses
+
+            logger.info(
+                "courses_loaded_and_enriched",
+                total_courses=len(courses),
+                enriched_count=len(self._enriched_courses),
+            )
         except FileNotFoundError:
             logger.warning("courses_file_not_found", path=str(COURSES_CSV_PATH))
             self._courses = []
@@ -355,6 +390,41 @@ class RAGService:
             return 0.0
         return sum(x * y for x, y in zip(a, b, strict=False))
 
+    def _parse_tech_preferences(self, tech_prefs: object | None) -> list[str]:
+        if not tech_prefs:
+            return []
+
+        if isinstance(tech_prefs, list):
+            items = [str(item).strip() for item in tech_prefs if str(item).strip()]
+        else:
+            text = str(tech_prefs).strip()
+            if not text:
+                return []
+
+            if text.startswith("[") and text.endswith("]"):
+                try:
+                    parsed = ast.literal_eval(text)
+                except (ValueError, SyntaxError):
+                    parsed = text
+                if isinstance(parsed, list):
+                    items = [str(item).strip() for item in parsed if str(item).strip()]
+                else:
+                    items = [str(parsed).strip()]
+            else:
+                normalized = text.replace("\n", ",")
+                for sep in [";", "|", "/"]:
+                    normalized = normalized.replace(sep, ",")
+                if "," in normalized:
+                    items = [t.strip() for t in normalized.split(",") if t.strip()]
+                elif " and " in normalized:
+                    items = [t.strip() for t in normalized.split(" and ") if t.strip()]
+                elif " & " in normalized:
+                    items = [t.strip() for t in normalized.split(" & ") if t.strip()]
+                else:
+                    items = [normalized]
+
+        return [item.lower() for item in items if item]
+
     def _build_query(
         self,
         role_slug: str,
@@ -375,13 +445,9 @@ class RAGService:
         # PRIORITY 1: User tech preferences first (most important)
         # User explicitly stated what they want to learn
         if profile_signals:
-            tech_prefs = profile_signals.get("tech-preferences", "")
-            if tech_prefs:
-                pref_keywords = [
-                    t.strip().lower()
-                    for t in tech_prefs.replace(",", " ").split()
-                    if len(t.strip()) > 2
-                ]
+            tech_prefs = profile_signals.get("tech-preferences")
+            pref_keywords = self._parse_tech_preferences(tech_prefs)
+            if pref_keywords:
                 # Add tech preferences multiple times for higher weight
                 query_parts.extend(pref_keywords[:5])
                 query_parts.extend(pref_keywords[:3])  # Repeat for boost
@@ -490,14 +556,18 @@ class RAGService:
         profile_signals = profile_signals or {}
 
         # Extract preferences from profile
-        payment_pref = profile_signals.get("payment-preference", "any").lower()
-        duration_pref = profile_signals.get("content-duration", "any").lower()
-        tech_prefs = profile_signals.get("tech-preferences", "").lower()
+        payment_pref = profile_signals.get("payment-preference", "any")
+        if isinstance(payment_pref, list):
+            payment_pref = payment_pref[0] if payment_pref else "any"
+        payment_pref = str(payment_pref).lower()
+
+        duration_pref = profile_signals.get("content-duration", "any")
+        if isinstance(duration_pref, list):
+            duration_pref = duration_pref[0] if duration_pref else "any"
+        duration_pref = str(duration_pref).lower()
 
         # Parse tech preferences into keywords for exact matching
-        tech_pref_keywords = [
-            t.strip().lower() for t in tech_prefs.replace(",", " ").split() if len(t.strip()) > 2
-        ]
+        tech_pref_keywords = self._parse_tech_preferences(profile_signals.get("tech-preferences"))
 
         # First pass: with payment filter
         matches = self._score_and_filter_courses(
@@ -540,267 +610,101 @@ class RAGService:
         top_k: int,
         strict_payment: bool = True,
     ) -> list[CourseMatch]:
-        """Score and filter courses with given parameters."""
+        """Score and filter courses using enriched metadata for better matching."""
         scored_courses = []
 
         for course in courses:
-            # Filter by payment preference
-            is_paid = str(course.get("is_paid", "True")).lower() == "true"
-            if strict_payment:
-                if payment_pref == "free" and is_paid:
-                    continue  # Skip paid courses if user wants free
-                elif payment_pref == "paid" and not is_paid:
-                    continue  # Skip free courses if user wants paid
+            # Get enriched metadata
+            enriched = course.get("_enriched")
+            if not enriched:
+                # Fallback to legacy method if enrichment failed
+                continue
 
-            # Calculate scores
+            # Use enriched metadata for precise filtering
+            matches, match_score = CourseEnricher.match_user_preferences(
+                enriched_course=enriched,
+                user_tech_prefs=tech_pref_keywords,
+                payment_pref=payment_pref if strict_payment else "any",
+                duration_pref=duration_pref,
+                difficulty_pref=None,  # Don't filter by difficulty yet
+            )
+
+            if not matches:
+                continue  # Course doesn't match user preferences
+
+            # Legacy scoring for backward compatibility
             keyword_score = self._calculate_relevance(course, query_terms)
             embedding_score = self._cosine_similarity(query_vec, course.get("_vector", []))
+
+            # Boost for missed topics
             tag_boost = 0.0
-            course_tags = course.get("_tags", [])
-            if missed_topics and any(tag in missed_topics for tag in course_tags):
-                tag_boost = 0.1
+            if missed_topics and any(tag in enriched.tech_tags for tag in missed_topics):
+                tag_boost = 0.15
 
-            # MAJOR BOOST for exact tech preference match
-            # This ensures courses matching user's explicit preference rank higher
-            tech_pref_boost = 0.0
-            course_title_lower = course.get("course_title", "").lower()
-            tech_pref_matched = False
-            matched_tech_terms = []
-            # Use whole-word matching for tech preferences
-            for tech_term in tech_pref_keywords:
-                if self._word_match(tech_term, course_title_lower):
-                    tech_pref_boost += 0.3  # Significant boost per matched term
-                    tech_pref_matched = True
-                    matched_tech_terms.append(tech_term)
-
-            # Store matched tech terms for reason generation
-            course["_matched_tech_prefs"] = matched_tech_terms
-            course["_tech_pref_matched"] = tech_pref_matched
-
-            # Boost for duration preference using actual content_duration field
-            # User preferences: short (<2h), medium (2-10h), long (>10h)
-            duration_boost = 0.0
-            level = course.get("level", "").lower()
-            duration_matched = False
-
-            try:
-                content_duration = float(course.get("content_duration", 0) or 0)
-
-                if duration_pref == "short":
-                    # Short: < 2 hours
-                    if content_duration < 2:
-                        duration_boost = 0.1
-                        duration_matched = True
-                    elif content_duration < 5:
-                        duration_boost = 0.03  # Partial match
-                elif duration_pref == "medium":
-                    # Medium: 2-10 hours
-                    if 2 <= content_duration <= 10:
-                        duration_boost = 0.1
-                        duration_matched = True
-                    elif content_duration < 15:
-                        duration_boost = 0.03  # Partial match
-                elif duration_pref == "long":
-                    # Long: > 10 hours
-                    if content_duration > 10:
-                        duration_boost = 0.1
-                        duration_matched = True
-                    elif content_duration > 5:
-                        duration_boost = 0.03  # Partial match
-            except (ValueError, TypeError):
-                # Fallback to level-based matching if duration not available
-                if duration_pref == "short" and "beginner" in level:
-                    duration_boost = 0.05
-                    duration_matched = True
-                elif duration_pref == "medium" and "intermediate" in level:
-                    duration_boost = 0.05
-                    duration_matched = True
-                elif duration_pref == "long" and ("advanced" in level or "all levels" in level):
-                    duration_boost = 0.05
-                    duration_matched = True
-
-            # Track payment match for match_reason
-            payment_matched = (
-                (payment_pref == "free" and not is_paid)
-                or (payment_pref == "paid" and is_paid)
-                or payment_pref == "any"
-            )
-
-            # Store preference match info for later
-            course["_duration_matched"] = duration_matched
-            course["_payment_matched"] = payment_matched and payment_pref != "any"
-            course["_is_paid"] = is_paid
-
-            # Calculate final score with tech preference boost having highest weight
-            score = (
-                keyword_score * 0.4
-                + embedding_score * 0.2
-                + tag_boost
-                + duration_boost
-                + tech_pref_boost  # Major boost for matching user's explicit tech preference
-            )
-
-            # RELEVANCE FILTER: Course must have at least ONE of:
-            # 1. Match user's tech preferences (whole word)
-            # 2. Match a query keyword in title (whole word)
-            # 3. Have a relevant tag (from missed topics)
-            # This prevents irrelevant courses (guitar, piano, accounting) from appearing
-            has_tech_match = tech_pref_matched
-            has_keyword_match = any(self._word_match(t, course_title_lower) for t in query_terms)
-            has_tag_match = (
-                any(tag in missed_topics for tag in course_tags) if missed_topics else False
-            )
-
-            # Check if course subject is relevant to programming/tech
-            subject = course.get("subject", "").lower()
-            is_tech_subject = any(
-                s in subject
-                for s in [
-                    "web development",
-                    "programming",
-                    "software",
-                    "data science",
-                    "development",
-                    "it & software",
-                    "database",
-                    "mobile",
-                ]
-            )
-
-            # Only include if course is relevant
-            is_relevant = has_tech_match or has_keyword_match or has_tag_match
-
-            # Relax: if course is in tech subject and has decent score, include it
-            if not is_relevant and is_tech_subject and score >= 0.2:
-                is_relevant = True
-
-            if score > 0.1 and is_relevant:  # Minimum threshold + relevance check
-                scored_courses.append((course, score))
-
-        # Sort by score descending, then by course_id for deterministic results
-        scored_courses.sort(key=lambda x: (-x[1], x[0].get("course_id", "")))
-
-        matches = []
-        for _i, (course, score) in enumerate(scored_courses[:top_k]):
-            # Find which terms matched (using whole word matching)
-            title = course.get("course_title", "").lower()
-            matched_terms = [t for t in query_terms if self._word_match(t, title)]
-            matched_topics = [t for t in (course.get("_tags", []) or []) if t in missed_topics]
-
-            # Generate comprehensive match reason using all available data
-            level = course.get("level", "").lower()
-            subject = course.get("subject", "")
-            num_reviews = int(course.get("num_reviews", "0") or 0)
-            num_subscribers = int(course.get("num_subscribers", "0") or 0)
-            num_lectures = int(course.get("num_lectures", "0") or 0)
-
-            try:
-                content_duration = float(course.get("content_duration", 0) or 0)
-            except (ValueError, TypeError):
-                content_duration = 0
-
-            # Determine quality tier
-            if num_reviews > 500 and num_subscribers > 10000:
-                quality_tier = "top-rated"
-            elif num_reviews > 100:
-                quality_tier = "highly-rated"
-            elif num_reviews > 50:
-                quality_tier = "well-reviewed"
-            else:
-                quality_tier = ""
-
+            # Build match reason
             reason_parts = []
-
-            # PRIORITY: Show tech preference match first (most important to user)
-            matched_tech_prefs = course.get("_matched_tech_prefs", [])
-            if matched_tech_prefs:
-                reason_parts.append("Matches your interest in " + ", ".join(matched_tech_prefs))
-
-            if matched_terms:
-                # Filter out terms already mentioned in tech prefs
-                other_terms = [t for t in matched_terms[:3] if t not in matched_tech_prefs]
-                if other_terms:
-                    reason_parts.append("covers " + ", ".join(other_terms))
-
-            if matched_topics:
-                reason_parts.append("addresses " + ", ".join(matched_topics[:2]))
-
-            # Quality indicator with more detail
-            if quality_tier:
-                quality_detail = (
-                    f"{quality_tier} ({num_reviews} reviews, " f"{num_subscribers:,} students)"
-                )
-                reason_parts.append(quality_detail)
-
-            # Duration match with actual hours
-            if course.get("_duration_matched"):
-                if content_duration > 0:
-                    if content_duration < 10:
-                        duration_text = f"{content_duration:.1f}h"
-                    else:
-                        duration_text = f"{int(content_duration)}h"
-                    reason_parts.append(
-                        f"duration matches preference "
-                        f"({duration_text}, {num_lectures} lectures)"
-                    )
+            if enriched.tech_tags:
+                pref_normalized = {CourseEnricher.normalize_term(tag) for tag in tech_pref_keywords}
+                matched_tags = [
+                    tag
+                    for tag in enriched.tech_tags
+                    if CourseEnricher.normalize_term(tag) in pref_normalized
+                ]
+                if matched_tags:
+                    reason_parts.append(f"Matches your interest in: {", ".join(matched_tags[:3])}")
                 else:
-                    if "beginner" in level:
-                        reason_parts.append("matches your preference for short/beginner content")
-                    elif "intermediate" in level:
-                        reason_parts.append("matches your preferred medium duration")
-                    elif "advanced" in level or "all levels" in level:
-                        reason_parts.append("matches your preference for comprehensive content")
+                    reason_parts.append(f"Covers: {", ".join(enriched.tech_tags[:3])}")
 
-            if course.get("_payment_matched"):
-                is_paid = course.get("_is_paid", True)
-                if is_paid:
-                    price = course.get("price", "")
-                    if price:
-                        reason_parts.append(f"premium course as preferred (${price})")
-                    else:
-                        reason_parts.append("premium course as preferred")
-                else:
-                    reason_parts.append("free course as preferred")
+            if enriched.difficulty:
+                reason_parts.append(f"{enriched.difficulty.capitalize()} level")
 
-            # Level description with lecture count
-            if "beginner" in level or "all levels" in level:
-                reason_parts.append("suitable for building foundations")
-            elif "intermediate" in level or "advanced" in level:
-                reason_parts.append("for advancing skills")
+            if enriched.is_free:
+                reason_parts.append("Free course")
 
-            match_reason = (
-                ". ".join(reason_parts).capitalize() + "."
-                if reason_parts
-                else f"Relevant course in {subject}."
+            reason_parts.append(f"{enriched.duration_hours:.1f}h duration")
+
+            if enriched.num_subscribers > 10000:
+                reason_parts.append(f"{enriched.num_subscribers:,} students")
+
+            match_reason = " • ".join(reason_parts)
+
+            # Combine all scores
+            # Priority: enriched match score > keyword/embedding > quality
+            final_score = (
+                match_score * 0.5  # 50% from enriched metadata matching
+                + keyword_score * 0.2  # 20% from keyword relevance
+                + embedding_score * 0.1  # 10% from embedding similarity
+                + tag_boost  # Boost for missed topics
+                + enriched.quality_score * 0.2  # 20% from quality
             )
 
-            matches.append(
-                CourseMatch(
-                    course_id=course.get("course_id", ""),
-                    title=course.get("course_title", ""),
-                    url=course.get("url"),
-                    relevance_score=round(score, 3),
-                    match_reason=match_reason,
-                    metadata={
-                        "subject": subject,
-                        "level": course.get("level", ""),
-                        "num_subscribers": num_subscribers,
-                        "num_reviews": num_reviews,
-                        "num_lectures": num_lectures,
-                        "content_duration": content_duration,
-                        "is_paid": course.get("is_paid", ""),
-                        "price": course.get("price", ""),
-                        "published_timestamp": course.get("published_timestamp", ""),
-                        "tags": course.get("_tags", []),
-                        # Pre-computed scores for transparency
-                        "quality_score": round(course.get("_quality_score", 0), 3),
-                        "freshness_score": round(course.get("_freshness_score", 0), 3),
-                        "depth_score": round(course.get("_depth_score", 0), 3),
-                    },
-                )
-            )
+            scored_courses.append((final_score, course, match_reason))
 
-        return matches
+        # Sort by score descending
+        scored_courses.sort(key=lambda x: x[0], reverse=True)
+
+        # Return top K
+        return [
+            CourseMatch(
+                course_id=course.get("course_id", ""),
+                title=course.get("course_title", ""),
+                url=course.get("url"),
+                relevance_score=round(score, 3),
+                match_reason=reason,
+                metadata={
+                    "subject": course.get("subject", ""),
+                    "level": course.get("level", ""),
+                    "duration_hours": float(course.get("content_duration", 0) or 0),
+                    "is_paid": course.get("is_paid", False),
+                    "price": float(course.get("price", 0) or 0),
+                    "subscribers": int(course.get("num_subscribers", 0) or 0),
+                    "enriched_tags": course.get("_enriched").tech_tags
+                    if course.get("_enriched")
+                    else [],
+                },
+            )
+            for score, course, reason in scored_courses[:top_k]
+        ]
 
     async def retrieve_recommendations(
         self,
@@ -870,6 +774,7 @@ class RAGService:
             "backend-engineer": "Web Development",
             "frontend-engineer": "Web Development",
             "data-scientist": "Business Finance",  # Closest available
+            "data-analyst": "Business Finance",
             "devops-engineer": "Web Development",
             "product-manager": "Business Finance",
         }
@@ -990,7 +895,7 @@ class RAGService:
             )
         )
         rows = (await self.session.execute(stmt)).all()
-        signals: dict[str, str] = {}
+        signals: dict[str, str | list[str]] = {}
         for snapshot, response in rows:
             response_data = response.response_data or {}
             # Check multiple possible keys for the response value
@@ -1006,7 +911,16 @@ class RAGService:
             if not value:
                 continue
             key = (snapshot.metadata_ or {}).get("dimension") or str(snapshot.sequence)
-            signals[str(key)] = str(value)
+            if isinstance(value, list):
+                cleaned = [str(item).strip() for item in value if str(item).strip()]
+                if not cleaned:
+                    continue
+                signals[str(key)] = cleaned
+            else:
+                text_value = str(value).strip()
+                if not text_value:
+                    continue
+                signals[str(key)] = text_value
         return signals
 
     async def _extract_essay_keywords(self, assessment_id: str) -> list[str]:
@@ -1032,6 +946,13 @@ class RAGService:
 
     async def _extract_missed_topics(self, assessment_id: str) -> list[str]:
         """Extract topics from questions that scored poorly."""
+        profile_dimensions = {
+            "experience",
+            "experience-level",
+            "tech-preferences",
+            "content-duration",
+            "payment-preference",
+        }
         stmt = (
             select(Score, AssessmentQuestionSnapshot)
             .join(
@@ -1048,8 +969,10 @@ class RAGService:
             ratio = score.score / score.max_score
             if ratio >= 0.6:
                 continue
+            if snapshot.question_type == QuestionType.PROFILE:
+                continue
             dimension = (snapshot.metadata_ or {}).get("dimension")
-            if dimension:
+            if dimension and dimension not in profile_dimensions:
                 missed.append(str(dimension))
         return missed
 

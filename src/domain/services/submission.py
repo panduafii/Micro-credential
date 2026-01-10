@@ -231,28 +231,59 @@ class SubmissionService:
         response: dict[str, Any] = {}
 
         if question_type == QuestionType.ESSAY:
-            answer = self._clean_text(
-                payload.get("answer_text") or payload.get("answer") or payload.get("value")
-            )
-            if answer:
-                response["answer"] = answer
+            # Check each field individually to handle empty strings
+            answer = payload.get("answer_text")
+            if answer is None:
+                answer = payload.get("answer")
+            if answer is None:
+                answer = payload.get("value")
+
+            if answer is not None:
+                cleaned_answer = self._clean_text(answer)
+                response["answer"] = cleaned_answer if cleaned_answer else ""
+
         elif question_type == QuestionType.THEORETICAL:
-            selected = self._clean_text(
-                payload.get("selected_option")
-                or payload.get("selected_option_id")
-                or payload.get("answer_text")
-                or payload.get("value")
-            )
-            if selected:
-                response["selected_option"] = selected
-            if payload.get("selected_option_id"):
-                response["selected_option_id"] = self._clean_text(payload["selected_option_id"])
+            # Check each field individually
+            selected = payload.get("selected_option")
+            if selected is None:
+                selected = payload.get("selected_option_id")
+            if selected is None:
+                selected = payload.get("answer_text")
+            if selected is None:
+                selected = payload.get("value")
+
+            if selected is not None:
+                cleaned_selected = self._clean_text(selected)
+                response["selected_option"] = cleaned_selected if cleaned_selected else ""
+
+            # Handle selected_option_id separately
+            option_id = payload.get("selected_option_id")
+            if option_id is not None:
+                cleaned_id = self._clean_text(option_id)
+                response["selected_option_id"] = cleaned_id if cleaned_id else ""
+
         else:  # Profile question
-            value = self._clean_text(
-                payload.get("value") or payload.get("answer_text") or payload.get("answer")
-            )
-            if value:
-                response["value"] = value
+            # Check each field individually to handle empty strings properly
+            value = payload.get("value")
+            if value is None:
+                value = payload.get("selected_option")
+            if value is None:
+                value = payload.get("answer_text")
+            if value is None:
+                value = payload.get("answer")
+            if value is None:
+                value = payload.get("custom_text")
+            if value is None:
+                value = payload.get("text")
+            if value is None:
+                value = payload.get("values")
+            if value is None:
+                value = payload.get("selected_options")
+
+            # Clean and store value (even if empty string - user might intentionally leave blank)
+            if value is not None:
+                cleaned_value = self._clean_text(value)
+                response["value"] = cleaned_value if cleaned_value else ""
 
         if metadata is not None:
             response["metadata"] = metadata

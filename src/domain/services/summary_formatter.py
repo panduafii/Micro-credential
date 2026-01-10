@@ -41,7 +41,11 @@ def format_assessment_summary(
     missed_topics = missed_topics or []
 
     # Extract tech preferences for personalized greeting
-    tech_prefs = profile_signals.get("tech-preferences", "")
+    tech_prefs_raw = profile_signals.get("tech-preferences", "")
+    if isinstance(tech_prefs_raw, list):
+        tech_prefs = ", ".join(str(item).strip() for item in tech_prefs_raw if str(item).strip())
+    else:
+        tech_prefs = str(tech_prefs_raw) if tech_prefs_raw is not None else ""
 
     # Build personalized greeting with name
     name_greeting = f"**Hello, {user_name}!** " if user_name else ""
@@ -159,8 +163,15 @@ def format_assessment_summary(
         lines.append("")
 
     # Extract user preferences for profile insight
-    duration_pref = profile_signals.get("content-duration", "any").lower()
-    payment_pref = profile_signals.get("payment-preference", "any").lower()
+    duration_pref_raw = profile_signals.get("content-duration", "any")
+    if isinstance(duration_pref_raw, list):
+        duration_pref_raw = duration_pref_raw[0] if duration_pref_raw else "any"
+    duration_pref = str(duration_pref_raw).lower()
+
+    payment_pref_raw = profile_signals.get("payment-preference", "any")
+    if isinstance(payment_pref_raw, list):
+        payment_pref_raw = payment_pref_raw[0] if payment_pref_raw else "any"
+    payment_pref = str(payment_pref_raw).lower()
 
     # Map duration preference to readable text
     duration_text_map = {

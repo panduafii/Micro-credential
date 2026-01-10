@@ -25,8 +25,12 @@ from src.infrastructure.db.models import AsyncJob, JobStatus, JobType
 RENDER_DB_URL = os.getenv("RENDER_DATABASE_URL")
 if not RENDER_DB_URL:
     print("Error: RENDER_DATABASE_URL environment variable not set")
-    print("Usage: export RENDER_DATABASE_URL='postgresql+asyncpg://user:pass@host/db'")
+    print("Usage: export RENDER_DATABASE_URL='postgresql://user:pass@host/db'")
     sys.exit(1)
+
+# Convert to async driver format if not already
+if not RENDER_DB_URL.startswith("postgresql+asyncpg://"):
+    RENDER_DB_URL = RENDER_DB_URL.replace("postgresql://", "postgresql+asyncpg://")
 
 
 async def process_fusion_job(assessment_id: str) -> None:

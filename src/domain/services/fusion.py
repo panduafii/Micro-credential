@@ -177,7 +177,7 @@ class FusionService:
             )
         )
         rows = (await self.session.execute(stmt)).all()
-        signals: dict[str, str] = {}
+        signals: dict[str, str | list[str]] = {}
         for snapshot, response in rows:
             response_data = response.response_data or {}
             # Try multiple keys to get the value (different FE implementations)
@@ -192,7 +192,16 @@ class FusionService:
             if not value:
                 continue
             key = (snapshot.metadata_ or {}).get("dimension") or str(snapshot.sequence)
-            signals[str(key)] = str(value)
+            if isinstance(value, list):
+                cleaned = [str(item).strip() for item in value if str(item).strip()]
+                if not cleaned:
+                    continue
+                signals[str(key)] = cleaned
+            else:
+                text_value = str(value).strip()
+                if not text_value:
+                    continue
+                signals[str(key)] = text_value
         return signals
 
     async def _extract_missed_topics(self, assessment_id: str) -> list[str]:
@@ -280,12 +289,17 @@ class FusionService:
             raise FusionError(f"Assessment {assessment_id} not found")
 
         # Get fusion job
-        job_stmt = select(AsyncJob).where(
-            AsyncJob.assessment_id == assessment_id,
-            AsyncJob.job_type == JobType.FUSION.value,
+        job_stmt = (
+            select(AsyncJob)
+            .where(
+                AsyncJob.assessment_id == assessment_id,
+                AsyncJob.job_type == JobType.FUSION.value,
+                AsyncJob.status == JobStatus.QUEUED.value,
+            )
+            .order_by(AsyncJob.queued_at.desc())
         )
         job_result = await self.session.execute(job_stmt)
-        job = job_result.scalar_one_or_none()
+        job = job_result.scalars().first()  # Get most recent queued job
 
         if job:
             job.status = JobStatus.IN_PROGRESS.value

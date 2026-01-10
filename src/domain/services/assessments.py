@@ -160,7 +160,7 @@ class AssessmentService:
                 question_type=template.question_type,
                 prompt=template.prompt,
                 options=template.options,  # Include multiple choice options
-                metadata=metadata,
+                metadata_=metadata,
                 difficulty=template.difficulty,
                 weight=template.weight,
                 correct_answer=template.correct_answer,
