@@ -651,9 +651,11 @@ class RAGService:
                     if CourseEnricher.normalize_term(tag) in pref_normalized
                 ]
                 if matched_tags:
-                    reason_parts.append(f"Matches your interest in: {", ".join(matched_tags[:3])}")
+                    matched_display = ", ".join(matched_tags[:3])
+                    reason_parts.append(f"Matches your interest in: {matched_display}")
                 else:
-                    reason_parts.append(f"Covers: {", ".join(enriched.tech_tags[:3])}")
+                    covered_display = ", ".join(enriched.tech_tags[:3])
+                    reason_parts.append(f"Covers: {covered_display}")
 
             if enriched.difficulty:
                 reason_parts.append(f"{enriched.difficulty.capitalize()} level")

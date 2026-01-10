@@ -54,14 +54,14 @@ def upgrade() -> None:
 
     # Update existing records with skill focus tags and question mix
     op.execute("""
-        UPDATE role_catalog 
+        UPDATE role_catalog
         SET skill_focus_tags = '["backend", "api-design", "databases"]'::json,
             question_mix_overrides = '{"theoretical": 4, "essay": 4, "profile": 2}'::json
         WHERE slug = 'backend-engineer'
     """)
 
     op.execute("""
-        UPDATE role_catalog 
+        UPDATE role_catalog
         SET skill_focus_tags = '["data-analysis", "sql", "visualization"]'::json,
             question_mix_overrides = '{"theoretical": 3, "essay": 5, "profile": 2}'::json
         WHERE slug = 'data-analyst'

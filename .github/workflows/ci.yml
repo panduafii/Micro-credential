@@ -64,4 +64,3 @@ jobs:
     steps:
       - name: Integration test scaffold
         run: echo "Integration test suite placeholder - enable once tests are implemented."
-

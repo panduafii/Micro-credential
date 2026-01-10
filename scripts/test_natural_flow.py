@@ -124,18 +124,18 @@ class TestEmailValidation(unittest.TestCase):
     def test_valid_email(self):
         self.assertTrue(validate_email("user@example.com"))
         self.assertTrue(validate_email("test.user@company.co.id"))
-    
+
     def test_invalid_format(self):
         self.assertFalse(validate_email("notanemail"))
         self.assertFalse(validate_email("@example.com"))
         self.assertFalse(validate_email("user@"))
-    
+
     def test_empty_string(self):
         self.assertFalse(validate_email(""))
-    
+
     def test_null_value(self):
         self.assertFalse(validate_email(None))
-    
+
     def test_special_characters(self):
         self.assertTrue(validate_email("user+tag@example.com"))
         self.assertTrue(validate_email("user_name@example.com"))

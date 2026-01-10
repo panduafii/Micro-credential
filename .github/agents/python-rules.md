@@ -266,7 +266,7 @@ op.execute("ALTER TYPE assessment_status ADD VALUE IF NOT EXISTS 'submitted'")
 op.execute("CREATE TYPE job_type AS ENUM ('gpt', 'rag', 'fusion')")
 op.create_table(
     "async_jobs",
-    sa.Column("job_type", sa.Enum("gpt", "rag", "fusion", name="job_type", 
+    sa.Column("job_type", sa.Enum("gpt", "rag", "fusion", name="job_type",
               create_type=False)),  # SQLAlchemy may ignore create_type=False!
 )
 
@@ -323,7 +323,7 @@ poetry run python -c "from src.api.main import app; print('OK')"
 
 Before EVERY commit:
 1. [ ] `poetry run ruff check .` - passes
-2. [ ] `poetry run ruff format --check .` - passes  
+2. [ ] `poetry run ruff format --check .` - passes
 3. [ ] `poetry run pytest tests/` - all tests pass
 4. [ ] No line > 100 characters
 5. [ ] No unused imports (F401)
