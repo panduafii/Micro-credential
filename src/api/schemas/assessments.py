@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import AnyHttpUrl, BaseModel, Field
+from pydantic import AnyHttpUrl, BaseModel, EmailStr, Field
 from src.api.schemas.tracks import TrackItem
 
 
@@ -193,6 +193,15 @@ class AssessmentResultResponse(BaseModel):
     processing_duration_ms: int | None = None
     completed_at: str | None = None
     message: str | None = None
+
+
+class AssessmentSummaryEmailResponse(BaseModel):
+    """Response after sending assessment summary email."""
+
+    assessment_id: str
+    to_email: EmailStr
+    resend_id: str
+    sent_at: str
 
 
 # Story 3.3: Feedback

@@ -59,6 +59,15 @@ class Settings(BaseSettings):
     gpt_max_retries: int = Field(default=3, validation_alias="GPT_MAX_RETRIES")
     gpt_timeout_seconds: int = Field(default=60, validation_alias="GPT_TIMEOUT_SECONDS")
 
+    # Resend Email Configuration
+    resend_api_key: str = Field(default="", validation_alias="RESEND_API_KEY")
+    resend_base_url: str = Field(
+        default="https://api.resend.com",
+        validation_alias="RESEND_BASE_URL",
+    )
+    resend_from_email: str = Field(default="", validation_alias="RESEND_FROM_EMAIL")
+    resend_timeout_seconds: int = Field(default=20, validation_alias="RESEND_TIMEOUT_SECONDS")
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="allow")
 
 

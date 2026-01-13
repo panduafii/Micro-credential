@@ -14,6 +14,7 @@ from src.api.schemas.assessments import (
     AssessmentStatusResponse,
     AssessmentSubmitRequest,
     AssessmentSubmitResponse,
+    AssessmentSummaryEmailResponse,
     EssayScoreStatus,
     FeedbackCreateRequest,
     FeedbackResponse,
@@ -54,6 +55,12 @@ from src.domain.services.submission import (
     DuplicateSubmissionError,
     InvalidResponseError,
     SubmissionService,
+)
+from src.domain.services.summary_email import (
+    AssessmentResultNotReadyError,
+    RecipientEmailMissingError,
+    SummaryEmailSendError,
+    SummaryEmailService,
 )
 from src.workers.pipeline import process_assessment_jobs
 
@@ -395,6 +402,45 @@ async def get_assessment_result(
         processing_duration_ms=result.get("processing_duration_ms"),
         completed_at=result.get("completed_at"),
         message=result.get("message"),
+    )
+
+
+@router.post(
+    "/{assessment_id}/email-summary",
+    response_model=AssessmentSummaryEmailResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def send_summary_email(
+    assessment_id: str,
+    session: AsyncSession = Depends(get_db_session),
+    user: User = Depends(require_roles(["student", "admin"])),
+) -> AssessmentSummaryEmailResponse:
+    """
+    Send assessment summary and recommended item links to the user's email.
+    """
+    service = SummaryEmailService(session)
+    try:
+        result = await service.send_summary_email(
+            assessment_id=assessment_id,
+            user_id=user.user_id,
+            user_email=user.email,
+        )
+    except StatusNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except StatusNotOwnedError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except AssessmentResultNotReadyError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except RecipientEmailMissingError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except SummaryEmailSendError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+    return AssessmentSummaryEmailResponse(
+        assessment_id=result.assessment_id,
+        to_email=result.to_email,
+        resend_id=result.resend_id,
+        sent_at=result.sent_at,
     )
 
 
