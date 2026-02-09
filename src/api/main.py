@@ -34,14 +34,22 @@ def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name, version=settings.version, lifespan=lifespan)
 
     # CORS - Allow frontend to access API
+    # Use allow_origin_regex for wildcard domains
+    cors_origins = [
+        "http://localhost:3000",  # Next.js dev
+        "http://localhost:5173",  # Vite dev
+        "http://localhost:8080",  # Alternative dev
+        "http://127.0.0.1:3000",  # Alternative localhost
+    ]
+
+    # Allow all origins in local/development environment
+    if settings.environment in ["local", "development"]:
+        cors_origins.append("*")
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:3000",  # Local development
-            "http://localhost:5173",  # Vite default
-            "https://*.vercel.app",  # Vercel deployments
-            "https://*.netlify.app",  # Netlify deployments
-        ],
+        allow_origins=cors_origins if "*" not in cors_origins else ["*"],
+        allow_origin_regex=r"https://.*\.vercel\.app|https://.*\.netlify\.app|https://.*\.onrender\.com",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
