@@ -244,7 +244,7 @@ class AssessmentQuestionSnapshot(Base):
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
     # Multiple choice options copied from template
     options: Mapped[list[dict] | None] = mapped_column(JSON)
-    metadata_: Mapped[dict | None] = mapped_column("metadata", JSON)
+    metadata_: Mapped[dict | None] = mapped_column("metadata_", JSON)
     difficulty: Mapped[str | None] = mapped_column(String(32), default="medium")
     weight: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
     correct_answer: Mapped[str | None] = mapped_column(String(255))
