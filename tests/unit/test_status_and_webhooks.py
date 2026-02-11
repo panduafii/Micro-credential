@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from src.infrastructure.db.models import (
     Assessment,
+    AssessmentStatus,
     AsyncJob,
     JobStatus,
     JobType,
@@ -381,3 +382,59 @@ class TestStatusProgressCalculation:
         # Overall progress should be higher now
         # rule_score (20%) + gpt (30%) = at least 50%
         assert result["overall_progress"] >= 50
+
+    def test_completed_assessment_reports_full_progress(
+        self,
+        test_client_with_questions: TestClient,
+        event_loop,
+    ) -> None:
+        """Completed assessment should always return 100% overall progress."""
+        headers = auth_headers(user_id="student-progress-terminal")
+
+        response = test_client_with_questions.post(
+            "/assessments/start",
+            json={"role_slug": "backend-engineer"},
+            headers=headers,
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assessment_id = data["assessment_id"]
+        questions = data["questions"]
+
+        submit_response = submit_with_payload(
+            test_client_with_questions,
+            assessment_id,
+            questions,
+            headers=headers,
+        )
+        assert submit_response.status_code == 200
+
+        session_factory = test_client_with_questions.session_factory
+
+        async def mark_terminal_state() -> None:
+            async with session_factory() as session:
+                assessment = await session.get(Assessment, assessment_id)
+                assert assessment is not None
+                assessment.status = AssessmentStatus.COMPLETED
+
+                stmt = select(AsyncJob).where(AsyncJob.assessment_id == assessment_id)
+                jobs = list((await session.execute(stmt)).scalars().all())
+                for job in jobs:
+                    if job.job_type == JobType.GPT.value:
+                        job.status = JobStatus.FAILED.value
+                    else:
+                        job.status = JobStatus.COMPLETED.value
+                    job.completed_at = datetime.now(UTC)
+                await session.commit()
+
+        event_loop.run_until_complete(mark_terminal_state())
+
+        status_response = test_client_with_questions.get(
+            f"/assessments/{assessment_id}/status",
+            headers=headers,
+        )
+        assert status_response.status_code == 200
+        result = status_response.json()
+
+        assert result["status"] == "completed"
+        assert result["overall_progress"] == 100.0

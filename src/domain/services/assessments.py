@@ -112,9 +112,20 @@ class AssessmentService:
                 Assessment.status.in_(AssessmentStatus.active_statuses()),
             )
             .order_by(Assessment.created_at.desc())
-            .limit(1)
         )
-        return await self.session.scalar(stmt)
+        assessments = list((await self.session.execute(stmt)).scalars().all())
+        for assessment in assessments:
+            if not self._is_expired(assessment.expires_at):
+                return assessment
+        return None
+
+    @staticmethod
+    def _is_expired(expires_at: datetime | None) -> bool:
+        if expires_at is None:
+            return False
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=UTC)
+        return datetime.now(UTC) >= expires_at
 
     async def _create_assessment(
         self, *, user_id: str, role_slug: str, role: RoleCatalog

@@ -6,10 +6,12 @@ Tests the fusion service and result retrieval.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from src.domain.services.fusion import FusionService, ScoreBreakdown
+from src.infrastructure.db.models import AssessmentStatus
 
 
 class TestFusionServiceSummary:
@@ -271,3 +273,37 @@ class TestFusionServiceGetResult:
 
         with pytest.raises(AssessmentNotOwnedError):
             await service.get_assessment_result("test-123", "user-123")
+
+    @pytest.mark.asyncio
+    async def test_get_result_merges_degraded_and_uses_assessment_completed_at(self, mock_session):
+        """Result should use assessment degraded/completed_at as source of truth."""
+        assessment_result = MagicMock()
+        assessment = MagicMock()
+        assessment.id = "test-123"
+        assessment.owner_id = "user-123"
+        assessment.status = AssessmentStatus.COMPLETED
+        assessment.degraded = True
+        assessment.completed_at = datetime(2026, 2, 11, 18, 30, 35, tzinfo=UTC)
+        assessment_result.scalar_one_or_none.return_value = assessment
+
+        recommendation_result = MagicMock()
+        recommendation = MagicMock()
+        recommendation.summary = "Summary"
+        recommendation.overall_score = 700.0
+        recommendation.score_breakdown = {"overall": {"score": 700.0, "percentage": 100.0}}
+        recommendation.items = []
+        recommendation.rag_traces = {"match_count": 5}
+        recommendation.degraded = False
+        recommendation.processing_duration_ms = 115
+        recommendation.created_at = datetime(2026, 2, 11, 18, 30, 17, tzinfo=UTC)
+        recommendation_result.scalar_one_or_none.return_value = recommendation
+
+        mock_session.execute.side_effect = [assessment_result, recommendation_result]
+
+        service = FusionService(mock_session)
+        result = await service.get_assessment_result("test-123", "user-123")
+
+        assert result["status"] == "completed"
+        assert result["completed"] is True
+        assert result["degraded"] is True
+        assert result["completed_at"] == "2026-02-11T18:30:35+00:00"

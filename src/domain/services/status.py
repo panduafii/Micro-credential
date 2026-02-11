@@ -200,6 +200,18 @@ class StatusService:
         self, assessment: Assessment, stages: list[StageProgressInfo]
     ) -> float:
         """Calculate weighted overall progress percentage."""
+        status_value = (
+            assessment.status.value
+            if hasattr(assessment.status, "value")
+            else str(assessment.status)
+        )
+        if status_value == AssessmentStatus.COMPLETED.value:
+            return 100.0
+        if status_value == AssessmentStatus.FAILED.value and all(
+            stage.status in {"completed", "failed"} for stage in stages
+        ):
+            return 100.0
+
         total = 0.0
         for stage in stages:
             weight = self.STAGE_WEIGHTS.get(stage.name, 0.0)

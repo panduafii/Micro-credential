@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
+from src.infrastructure.db.models import Assessment
+
 from tests.utils import auth_headers
 
 
@@ -74,3 +78,39 @@ def test_assessment_question_mix(test_client_with_questions) -> None:
     assert type_counts.get("theoretical", 0) == 3
     assert type_counts.get("essay", 0) == 3
     assert type_counts.get("profile", 0) == 4
+
+
+def test_assessment_start_skips_expired_active_assessment(
+    test_client_with_questions,
+    event_loop,
+) -> None:
+    headers = auth_headers(user_id="student-expired-active")
+
+    first = test_client_with_questions.post(
+        "/assessments/start",
+        json={"role_slug": "backend-engineer"},
+        headers=headers,
+    )
+    assert first.status_code == 200
+    first_assessment_id = first.json()["assessment_id"]
+
+    session_factory = test_client_with_questions.session_factory  # type: ignore[attr-defined]
+
+    async def expire_assessment() -> None:
+        async with session_factory() as session:
+            assessment = await session.get(Assessment, first_assessment_id)
+            assert assessment is not None
+            assessment.expires_at = datetime.now(UTC) - timedelta(minutes=1)
+            await session.commit()
+
+    event_loop.run_until_complete(expire_assessment())
+
+    second = test_client_with_questions.post(
+        "/assessments/start",
+        json={"role_slug": "backend-engineer"},
+        headers=headers,
+    )
+    assert second.status_code == 200
+    second_assessment_id = second.json()["assessment_id"]
+
+    assert second_assessment_id != first_assessment_id

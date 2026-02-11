@@ -320,7 +320,9 @@ class FusionService:
         recommendation = rec_result.scalar_one_or_none()
 
         items = recommendation.items if recommendation else []
-        degraded = recommendation.degraded if recommendation else False
+        degraded = bool(
+            (recommendation.degraded if recommendation else False) or assessment.degraded
+        )
         rag_traces = recommendation.rag_traces if recommendation else None
 
         # Extract profile signals for personalization
@@ -345,6 +347,7 @@ class FusionService:
         if recommendation:
             recommendation.summary = summary
             recommendation.overall_score = breakdown.overall_score
+            recommendation.degraded = degraded
             recommendation.score_breakdown = {
                 "theoretical": {
                     "score": breakdown.theoretical_score,
@@ -372,7 +375,7 @@ class FusionService:
                 assessment_id=assessment_id,
                 summary=summary,
                 overall_score=breakdown.overall_score,
-                degraded=False,
+                degraded=degraded,
                 score_breakdown={
                     "theoretical": {
                         "score": breakdown.theoretical_score,
@@ -399,13 +402,15 @@ class FusionService:
             self.session.add(recommendation)
 
         # Update assessment status to completed
+        completed_at = datetime.now(UTC)
         assessment.status = AssessmentStatus.COMPLETED
-        assessment.completed_at = datetime.now(UTC)
+        assessment.degraded = degraded
+        assessment.completed_at = completed_at
 
         # Update job status
         if job:
             job.status = JobStatus.COMPLETED.value
-            job.completed_at = datetime.now(UTC)
+            job.completed_at = completed_at
 
         await self.session.commit()
 
@@ -435,7 +440,7 @@ class FusionService:
             rag_traces=rag_traces,
             degraded=degraded,
             processing_duration_ms=duration_ms,
-            completed_at=datetime.now(UTC).isoformat(),
+            completed_at=completed_at.isoformat(),
         )
 
     async def get_assessment_result(self, assessment_id: str, user_id: str) -> dict:
@@ -471,19 +476,32 @@ class FusionService:
         )
         rec_result = await self.session.execute(rec_stmt)
         recommendation = rec_result.scalar_one_or_none()
+        status_value = (
+            assessment.status.value
+            if hasattr(assessment.status, "value")
+            else str(assessment.status)
+        )
 
         if not recommendation:
             return {
                 "assessment_id": assessment_id,
-                "status": assessment.status.value,
+                "status": status_value,
                 "message": "Results not yet available. Processing may still be in progress.",
                 "completed": False,
             }
 
+        completed = status_value == AssessmentStatus.COMPLETED.value
+        degraded = bool(assessment.degraded or recommendation.degraded)
+        completed_at = (
+            assessment.completed_at.isoformat()
+            if assessment.completed_at
+            else recommendation.created_at.isoformat()
+        )
+
         return {
             "assessment_id": assessment_id,
-            "status": assessment.status.value,
-            "completed": assessment.status == AssessmentStatus.COMPLETED,
+            "status": status_value,
+            "completed": completed,
             "summary": recommendation.summary,
             "overall_score": recommendation.overall_score,
             "score_breakdown": recommendation.score_breakdown,
@@ -500,7 +518,7 @@ class FusionService:
                 for item in recommendation.items
             ],
             "rag_traces": recommendation.rag_traces,
-            "degraded": recommendation.degraded,
+            "degraded": degraded,
             "processing_duration_ms": recommendation.processing_duration_ms,
-            "completed_at": recommendation.created_at.isoformat(),
+            "completed_at": completed_at,
         }
