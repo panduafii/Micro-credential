@@ -9,7 +9,8 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from src.domain.services.rag import RAGService
+from src.domain.services.rag import CourseMatch, RAGService
+from src.infrastructure.repositories.course_enrichment import EnrichedCourseMetadata
 
 
 class TestRAGService:
@@ -92,6 +93,169 @@ class TestRAGService:
         score = rag_service._calculate_relevance(course, query_terms)
 
         assert score == 0  # No matches
+
+    def test_readiness_policy_forces_foundation_when_not_meeting_kkm(self, rag_service):
+        """Advanced target should be gated to foundational courses when score is low."""
+        policy = rag_service._build_readiness_policy(
+            role_slug="backend-engineer",
+            profile_signals={"tech-preferences": "aws, graphql"},
+            score_metrics={
+                "overall_pct": 52.0,
+                "theoretical_pct": 58.0,
+                "profile_pct": 38.0,
+                "essay_pct": 0.0,
+                "has_essay_scores": False,
+            },
+        )
+
+        assert policy["targeting_advanced"] is True
+        assert policy["advanced_eligible"] is False
+        assert policy["force_foundation"] is True
+        assert policy["difficulty_pref"] == "beginner"
+
+    def test_readiness_policy_allows_advanced_when_score_is_strong(self, rag_service):
+        """Advanced track is allowed when score passes KKM."""
+        policy = rag_service._build_readiness_policy(
+            role_slug="backend-engineer",
+            profile_signals={"tech-preferences": "aws, graphql"},
+            score_metrics={
+                "overall_pct": 82.0,
+                "theoretical_pct": 80.0,
+                "profile_pct": 72.0,
+                "essay_pct": 76.0,
+                "has_essay_scores": True,
+            },
+        )
+
+        assert policy["targeting_advanced"] is True
+        assert policy["advanced_eligible"] is True
+        assert policy["force_foundation"] is False
+
+    def test_difficulty_gate_filters_out_advanced_courses(self, rag_service):
+        """Beginner difficulty gate should exclude intermediate/advanced courses."""
+        beginner_course = {
+            "course_id": "c1",
+            "course_title": "AWS Basics for Beginners",
+            "subject": "Web Development",
+            "url": "http://test.com/c1",
+            "level": "Beginner Level",
+            "content_duration": 4.0,
+            "is_paid": "False",
+            "price": 0.0,
+            "num_subscribers": 1000,
+            "num_reviews": 100,
+            "_vector": rag_service._hash_embedding(["aws", "basics"]),
+            "_enriched": EnrichedCourseMetadata(
+                course_id="c1",
+                title="AWS Basics for Beginners",
+                tech_tags=["aws"],
+                difficulty="beginner",
+                is_free=True,
+                payment_type="free",
+                price=0.0,
+                duration_hours=4.0,
+                duration_category="short",
+                num_subscribers=1000,
+                num_reviews=100,
+                num_lectures=20,
+                quality_score=0.6,
+                popularity_score=0.2,
+                engagement_score=0.4,
+                level="Beginner Level",
+                subject="Web Development",
+                url="http://test.com/c1",
+                published_timestamp="2025-01-01T00:00:00Z",
+            ),
+        }
+        advanced_course = {
+            "course_id": "c2",
+            "course_title": "AWS Advanced Architecture",
+            "subject": "Web Development",
+            "url": "http://test.com/c2",
+            "level": "Expert Level",
+            "content_duration": 15.0,
+            "is_paid": "True",
+            "price": 49.0,
+            "num_subscribers": 2000,
+            "num_reviews": 150,
+            "_vector": rag_service._hash_embedding(["aws", "advanced"]),
+            "_enriched": EnrichedCourseMetadata(
+                course_id="c2",
+                title="AWS Advanced Architecture",
+                tech_tags=["aws"],
+                difficulty="advanced",
+                is_free=False,
+                payment_type="paid",
+                price=49.0,
+                duration_hours=15.0,
+                duration_category="medium",
+                num_subscribers=2000,
+                num_reviews=150,
+                num_lectures=50,
+                quality_score=0.7,
+                popularity_score=0.3,
+                engagement_score=0.4,
+                level="Expert Level",
+                subject="Web Development",
+                url="http://test.com/c2",
+                published_timestamp="2025-01-01T00:00:00Z",
+            ),
+        }
+
+        matches = rag_service._score_and_filter_courses(
+            courses=[beginner_course, advanced_course],
+            query_terms=["aws"],
+            query_vec=rag_service._hash_embedding(["aws"]),
+            missed_topics=[],
+            tech_pref_keywords=["aws"],
+            payment_pref="any",
+            duration_pref="any",
+            top_k=5,
+            difficulty_pref="beginner",
+            strict_payment=True,
+        )
+
+        assert len(matches) == 1
+        assert matches[0].course_id == "c1"
+
+    def test_tag_matches_with_learning_path_sets_metadata(self, rag_service):
+        """Learning path tags should be embedded in metadata and reason."""
+        source = [
+            CourseMatch(
+                course_id="course-1",
+                title="API Fundamentals",
+                url="http://example.com/course-1",
+                relevance_score=0.77,
+                match_reason="Matches your interest in: api",
+                metadata={"level": "Beginner Level"},
+            )
+        ]
+
+        tagged = rag_service._tag_matches_with_learning_path(
+            source,
+            path_key="mandatory_foundation",
+            path_label="Mandatory Foundation",
+        )
+
+        assert len(tagged) == 1
+        assert tagged[0].metadata["learning_path"] == "mandatory_foundation"
+        assert tagged[0].metadata["learning_path_label"] == "Mandatory Foundation"
+        assert tagged[0].match_reason.startswith("Mandatory Foundation")
+
+    def test_merge_unique_matches_prioritizes_primary_then_secondary(self, rag_service):
+        """Primary list order should win, with secondary filling remaining slots uniquely."""
+        primary = [
+            CourseMatch("c1", "Course 1", None, 0.9, "r1", {}),
+            CourseMatch("c2", "Course 2", None, 0.8, "r2", {}),
+        ]
+        secondary = [
+            CourseMatch("c2", "Course 2 Duplicate", None, 0.7, "r2b", {}),
+            CourseMatch("c3", "Course 3", None, 0.6, "r3", {}),
+        ]
+
+        merged = rag_service._merge_unique_matches(primary, secondary, limit=3)
+
+        assert [m.course_id for m in merged] == ["c1", "c2", "c3"]
 
 
 class TestRAGServiceRetrieval:

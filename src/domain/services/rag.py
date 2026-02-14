@@ -127,6 +127,26 @@ ROLE_KEYWORDS: dict[str, list[str]] = {
     ],
 }
 
+ROLE_FOUNDATION_KEYWORDS: dict[str, list[str]] = {
+    "backend-engineer": [
+        "programming fundamentals",
+        "python",
+        "api",
+        "rest",
+        "database",
+        "sql",
+        "backend basics",
+    ],
+    "data-analyst": [
+        "data analysis fundamentals",
+        "sql",
+        "excel",
+        "statistics",
+        "data visualization",
+        "dashboard",
+    ],
+}
+
 TOPIC_KEYWORDS: dict[str, list[str]] = {
     "api": ["api", "rest", "graphql"],
     "database": ["database", "sql", "postgres", "mysql"],
@@ -159,6 +179,22 @@ STOPWORDS = {
     "that",
 }
 
+# Technologies that usually require stronger fundamentals before advanced tracks.
+ADVANCED_TECH_KEYWORDS = {
+    "kubernetes",
+    "microservices",
+    "terraform",
+    "aws",
+    "azure",
+    "gcp",
+    "cloud",
+    "devops",
+    "kafka",
+    "graphql",
+    "machine learning",
+    "deep learning",
+}
+
 
 @dataclass
 class CourseMatch:
@@ -180,6 +216,7 @@ class RAGResult:
     matches: list[CourseMatch]
     degraded: bool = False
     error: str | None = None
+    readiness: dict | None = None
 
 
 class RAGRetrievalError(Exception):
@@ -425,12 +462,92 @@ class RAGService:
 
         return [item.lower() for item in items if item]
 
+    def _has_advanced_learning_target(self, tech_keywords: list[str]) -> bool:
+        """Detect whether user target includes advanced technology domains."""
+        if not tech_keywords:
+            return False
+
+        combined = " ".join(tech_keywords).lower()
+        return any(keyword in combined for keyword in ADVANCED_TECH_KEYWORDS)
+
+    def _build_readiness_policy(
+        self,
+        role_slug: str,
+        profile_signals: dict | None,
+        score_metrics: dict[str, float | bool],
+    ) -> dict[str, object]:
+        """Build KKM/readiness policy for gating recommendation difficulty."""
+        tech_prefs = self._parse_tech_preferences((profile_signals or {}).get("tech-preferences"))
+        targeting_advanced = self._has_advanced_learning_target(tech_prefs)
+
+        overall_pct = float(score_metrics.get("overall_pct", 0.0) or 0.0)
+        theoretical_pct = float(score_metrics.get("theoretical_pct", 0.0) or 0.0)
+        profile_pct = float(score_metrics.get("profile_pct", 0.0) or 0.0)
+        essay_pct = float(score_metrics.get("essay_pct", 0.0) or 0.0)
+        has_essay_scores = bool(score_metrics.get("has_essay_scores", False))
+
+        # Readiness tier from observed competence, not from user preference.
+        if (
+            overall_pct < 55
+            or theoretical_pct < 60
+            or (has_essay_scores and essay_pct < 55)
+            or profile_pct < 35
+        ):
+            readiness_tier = "foundation"
+        elif overall_pct < 75 or theoretical_pct < 72 or (has_essay_scores and essay_pct < 65):
+            readiness_tier = "intermediate"
+        else:
+            readiness_tier = "advanced"
+
+        # KKM for moving into advanced track.
+        advanced_kkm = 70.0
+        advanced_eligible = (
+            overall_pct >= advanced_kkm
+            and theoretical_pct >= 65
+            and (not has_essay_scores or essay_pct >= 60)
+            and profile_pct >= 45
+        )
+
+        force_foundation = targeting_advanced and not advanced_eligible
+        if force_foundation:
+            difficulty_pref = "beginner"
+            reason = (
+                "Target teknologi bersifat advanced, tetapi skor belum memenuhi KKM. "
+                "Rekomendasi diarahkan ke fundamental terlebih dahulu."
+            )
+        elif readiness_tier == "foundation":
+            difficulty_pref = "beginner"
+            reason = "Skor dasar belum stabil, fokus ke fundamental."
+        elif readiness_tier == "intermediate":
+            difficulty_pref = "intermediate"  # Matcher still allows beginner.
+            reason = "Skor cukup untuk jalur menengah dengan penguatan fundamental."
+        else:
+            difficulty_pref = None
+            reason = "Skor tinggi, boleh mengejar jalur advanced."
+
+        return {
+            "role_slug": role_slug,
+            "readiness_tier": readiness_tier,
+            "difficulty_pref": difficulty_pref,
+            "targeting_advanced": targeting_advanced,
+            "advanced_eligible": advanced_eligible,
+            "force_foundation": force_foundation,
+            "advanced_kkm": advanced_kkm,
+            "overall_pct": round(overall_pct, 1),
+            "theoretical_pct": round(theoretical_pct, 1),
+            "profile_pct": round(profile_pct, 1),
+            "essay_pct": round(essay_pct, 1),
+            "has_essay_scores": has_essay_scores,
+            "reason": reason,
+        }
+
     def _build_query(
         self,
         role_slug: str,
         profile_signals: dict | None = None,
         essay_keywords: list[str] | None = None,
         missed_topics: list[str] | None = None,
+        foundation_first: bool = False,
     ) -> str:
         """Build RAG query from role context and signals.
 
@@ -442,15 +559,27 @@ class RAGService:
         """
         query_parts = []
 
+        if foundation_first:
+            foundation_keywords = ROLE_FOUNDATION_KEYWORDS.get(role_slug) or ROLE_KEYWORDS.get(
+                role_slug, []
+            )
+            if foundation_keywords:
+                query_parts.extend(foundation_keywords[:6])
+                query_parts.extend(foundation_keywords[:3])  # Boost foundation topics
+
         # PRIORITY 1: User tech preferences first (most important)
         # User explicitly stated what they want to learn
         if profile_signals:
             tech_prefs = profile_signals.get("tech-preferences")
             pref_keywords = self._parse_tech_preferences(tech_prefs)
             if pref_keywords:
-                # Add tech preferences multiple times for higher weight
-                query_parts.extend(pref_keywords[:5])
-                query_parts.extend(pref_keywords[:3])  # Repeat for boost
+                if foundation_first:
+                    # Keep user intent, but avoid over-dominating fundamental path.
+                    query_parts.extend(pref_keywords[:3])
+                else:
+                    # Add tech preferences multiple times for higher weight.
+                    query_parts.extend(pref_keywords[:5])
+                    query_parts.extend(pref_keywords[:3])  # Repeat for boost
 
         # PRIORITY 2: Missed topics (areas user needs to improve)
         if missed_topics:
@@ -535,6 +664,7 @@ class RAGService:
         top_k: int = 5,
         missed_topics: list[str] | None = None,
         profile_signals: dict | None = None,
+        readiness_policy: dict[str, object] | None = None,
     ) -> list[CourseMatch]:
         """Retrieve top-K courses matching the query.
 
@@ -542,6 +672,7 @@ class RAGService:
         1. First try with all filters (payment preference, etc.)
         2. If not enough results, relax payment filter but keep relevance requirement
         3. Only return courses that match tech preferences OR role keywords
+        4. Apply readiness/KKM difficulty gate to avoid over-shoot recommendations
         """
         courses = self._load_courses()
         if not courses:
@@ -566,8 +697,33 @@ class RAGService:
             duration_pref = duration_pref[0] if duration_pref else "any"
         duration_pref = str(duration_pref).lower()
 
+        difficulty_pref = (
+            str(readiness_policy.get("difficulty_pref"))
+            if readiness_policy and readiness_policy.get("difficulty_pref")
+            else None
+        )
+        readiness_reason = (
+            str(readiness_policy.get("reason"))
+            if readiness_policy and readiness_policy.get("reason")
+            else None
+        )
+
         # Parse tech preferences into keywords for exact matching
         tech_pref_keywords = self._parse_tech_preferences(profile_signals.get("tech-preferences"))
+
+        def _merge_unique(base: list[CourseMatch], extra: list[CourseMatch]) -> list[CourseMatch]:
+            if not extra:
+                return base
+            merged = list(base)
+            seen = {item.course_id for item in merged}
+            for candidate in extra:
+                if candidate.course_id in seen:
+                    continue
+                merged.append(candidate)
+                seen.add(candidate.course_id)
+                if len(merged) >= top_k:
+                    break
+            return merged
 
         # First pass: with payment filter
         matches = self._score_and_filter_courses(
@@ -579,12 +735,14 @@ class RAGService:
             payment_pref,
             duration_pref,
             top_k,
+            difficulty_pref=difficulty_pref,
+            readiness_note=readiness_reason,
             strict_payment=True,
         )
 
         # If not enough relevant results, try without strict payment filter
         if len(matches) < top_k and payment_pref != "any":
-            matches = self._score_and_filter_courses(
+            relaxed_payment_matches = self._score_and_filter_courses(
                 courses,
                 query_terms,
                 query_vec,
@@ -593,8 +751,32 @@ class RAGService:
                 payment_pref,
                 duration_pref,
                 top_k,
+                difficulty_pref=difficulty_pref,
+                readiness_note=readiness_reason,
                 strict_payment=False,
             )
+            matches = _merge_unique(matches, relaxed_payment_matches)
+
+        # If forced to foundation and still sparse, relax tech-match to avoid empty output.
+        if (
+            len(matches) < top_k
+            and readiness_policy
+            and bool(readiness_policy.get("force_foundation"))
+        ):
+            foundation_fill = self._score_and_filter_courses(
+                courses,
+                query_terms,
+                query_vec,
+                missed_topics,
+                [],  # Allow broad fundamentals regardless stated tech.
+                "any",
+                duration_pref,
+                top_k,
+                difficulty_pref="beginner",
+                readiness_note=readiness_reason,
+                strict_payment=False,
+            )
+            matches = _merge_unique(matches, foundation_fill)
 
         return matches
 
@@ -608,6 +790,8 @@ class RAGService:
         payment_pref: str,
         duration_pref: str,
         top_k: int,
+        difficulty_pref: str | None = None,
+        readiness_note: str | None = None,
         strict_payment: bool = True,
     ) -> list[CourseMatch]:
         """Score and filter courses using enriched metadata for better matching."""
@@ -626,7 +810,7 @@ class RAGService:
                 user_tech_prefs=tech_pref_keywords,
                 payment_pref=payment_pref if strict_payment else "any",
                 duration_pref=duration_pref,
-                difficulty_pref=None,  # Don't filter by difficulty yet
+                difficulty_pref=difficulty_pref,
             )
 
             if not matches:
@@ -656,6 +840,9 @@ class RAGService:
                 else:
                     covered_display = ", ".join(enriched.tech_tags[:3])
                     reason_parts.append(f"Covers: {covered_display}")
+
+            if readiness_note:
+                reason_parts.append("Readiness gate applied")
 
             if enriched.difficulty:
                 reason_parts.append(f"{enriched.difficulty.capitalize()} level")
@@ -716,6 +903,7 @@ class RAGService:
         essay_keywords: list[str] | None = None,
         missed_topics: list[str] | None = None,
         top_k: int = 5,
+        readiness_policy: dict[str, object] | None = None,
     ) -> RAGResult:
         """
         Retrieve role-aware recommendations for an assessment.
@@ -724,10 +912,22 @@ class RAGService:
         AC2: Returns Top-K credentials with metadata.
         AC4: Static fallback when retrieval fails.
         """
-        query = self._build_query(role_slug, profile_signals, essay_keywords, missed_topics)
+        query = self._build_query(
+            role_slug,
+            profile_signals,
+            essay_keywords,
+            missed_topics,
+            foundation_first=bool(readiness_policy and readiness_policy.get("force_foundation")),
+        )
 
         try:
-            matches = self._retrieve_courses(query, top_k, missed_topics, profile_signals)
+            matches = self._retrieve_courses(
+                query,
+                top_k,
+                missed_topics,
+                profile_signals,
+                readiness_policy=readiness_policy,
+            )
 
             if not matches:
                 # AC4: Static fallback
@@ -740,6 +940,7 @@ class RAGService:
                     query=query,
                     matches=self._get_fallback_courses(role_slug, top_k),
                     degraded=True,
+                    readiness=readiness_policy,
                 )
 
             await logger.ainfo(
@@ -747,9 +948,15 @@ class RAGService:
                 assessment_id=assessment_id,
                 query=query,
                 match_count=len(matches),
+                readiness_tier=(
+                    readiness_policy.get("readiness_tier") if readiness_policy else None
+                ),
+                forced_foundation=(
+                    readiness_policy.get("force_foundation") if readiness_policy else False
+                ),
             )
 
-            return RAGResult(query=query, matches=matches)
+            return RAGResult(query=query, matches=matches, readiness=readiness_policy)
 
         except Exception as e:
             await logger.aerror(
@@ -763,6 +970,7 @@ class RAGService:
                 matches=self._get_fallback_courses(role_slug, top_k),
                 degraded=True,
                 error=str(e),
+                readiness=readiness_policy,
             )
 
     def _get_fallback_courses(self, role_slug: str, top_k: int = 5) -> list[CourseMatch]:
@@ -824,6 +1032,158 @@ class RAGService:
 
         return matches
 
+    def _tag_matches_with_learning_path(
+        self,
+        matches: list[CourseMatch],
+        path_key: str,
+        path_label: str,
+    ) -> list[CourseMatch]:
+        """Attach learning-path metadata to recommendation matches."""
+        tagged: list[CourseMatch] = []
+        for match in matches:
+            metadata = dict(match.metadata or {})
+            metadata["learning_path"] = path_key
+            metadata["learning_path_label"] = path_label
+
+            base_reason = (match.match_reason or "").strip()
+            if base_reason:
+                tagged_reason = f"{path_label} • {base_reason}"
+            else:
+                tagged_reason = path_label
+
+            tagged.append(
+                CourseMatch(
+                    course_id=match.course_id,
+                    title=match.title,
+                    url=match.url,
+                    relevance_score=match.relevance_score,
+                    match_reason=tagged_reason,
+                    metadata=metadata,
+                )
+            )
+        return tagged
+
+    def _merge_unique_matches(
+        self,
+        primary: list[CourseMatch],
+        secondary: list[CourseMatch],
+        limit: int,
+    ) -> list[CourseMatch]:
+        """Merge two ranked lists while preserving order and removing duplicates."""
+        merged: list[CourseMatch] = []
+        seen_ids: set[str] = set()
+        for source in (primary, secondary):
+            for item in source:
+                if item.course_id in seen_ids:
+                    continue
+                merged.append(item)
+                seen_ids.add(item.course_id)
+                if len(merged) >= limit:
+                    return merged
+        return merged
+
+    async def _retrieve_with_learning_paths(
+        self,
+        assessment_id: str,
+        role_slug: str,
+        profile_signals: dict | None,
+        essay_keywords: list[str] | None,
+        missed_topics: list[str] | None,
+        readiness_policy: dict[str, object],
+    ) -> RAGResult:
+        """
+        Build recommendations with two-path output when advanced target isn't ready.
+
+        Path model:
+        - Mandatory Foundation: required courses for current readiness.
+        - Target Path (Aspirational): user-desired stack as next phase.
+        """
+        force_foundation = bool(readiness_policy.get("force_foundation"))
+        if not force_foundation:
+            base_result = await self.retrieve_recommendations(
+                assessment_id=assessment_id,
+                role_slug=role_slug,
+                profile_signals=profile_signals,
+                essay_keywords=essay_keywords,
+                missed_topics=missed_topics,
+                readiness_policy=readiness_policy,
+            )
+            tagged_matches = self._tag_matches_with_learning_path(
+                base_result.matches,
+                path_key="target_path",
+                path_label="Target Path",
+            )
+            readiness_with_paths = dict(base_result.readiness or readiness_policy)
+            readiness_with_paths["learning_paths"] = {
+                "mode": "single-path",
+                "target_path_count": len(tagged_matches),
+                "mandatory_foundation_count": 0,
+            }
+            return RAGResult(
+                query=base_result.query,
+                matches=tagged_matches,
+                degraded=base_result.degraded,
+                error=base_result.error,
+                readiness=readiness_with_paths,
+            )
+
+        # Two-path mode for not-yet-ready advanced targets.
+        foundation_result = await self.retrieve_recommendations(
+            assessment_id=assessment_id,
+            role_slug=role_slug,
+            profile_signals=profile_signals,
+            essay_keywords=essay_keywords,
+            missed_topics=missed_topics,
+            top_k=3,
+            readiness_policy=readiness_policy,
+        )
+        foundation_matches = self._tag_matches_with_learning_path(
+            foundation_result.matches,
+            path_key="mandatory_foundation",
+            path_label="Mandatory Foundation",
+        )
+
+        target_policy = dict(readiness_policy)
+        target_policy["force_foundation"] = False
+        target_policy["difficulty_pref"] = None
+        target_policy["reason"] = None
+        target_result = await self.retrieve_recommendations(
+            assessment_id=assessment_id,
+            role_slug=role_slug,
+            profile_signals=profile_signals,
+            essay_keywords=essay_keywords,
+            missed_topics=missed_topics,
+            top_k=2,
+            readiness_policy=target_policy,
+        )
+        target_matches = self._tag_matches_with_learning_path(
+            target_result.matches,
+            path_key="target_path",
+            path_label="Target Path (Aspirational)",
+        )
+
+        combined = self._merge_unique_matches(foundation_matches, target_matches, limit=5)
+        readiness_with_paths = dict(readiness_policy)
+        readiness_with_paths["learning_paths"] = {
+            "mode": "two-path",
+            "mandatory_foundation_count": len(foundation_matches),
+            "target_path_count": len(target_matches),
+            "mandatory_foundation_query": foundation_result.query,
+            "target_path_query": target_result.query,
+            "note": (
+                "Target path bersifat aspirational. Selesaikan Mandatory Foundation "
+                "terlebih dahulu agar risiko gagal belajar lebih rendah."
+            ),
+        }
+
+        return RAGResult(
+            query=foundation_result.query,
+            matches=combined,
+            degraded=foundation_result.degraded or target_result.degraded,
+            error=foundation_result.error or target_result.error,
+            readiness=readiness_with_paths,
+        )
+
     async def process_rag_job(self, assessment_id: str) -> RAGResult:
         """
         Process RAG job for an assessment.
@@ -859,14 +1219,21 @@ class RAGService:
         # Extract essay keywords from scores/responses
         essay_keywords = await self._extract_essay_keywords(assessment_id)
         missed_topics = await self._extract_missed_topics(assessment_id)
+        score_metrics = await self._extract_score_metrics(assessment_id)
+        readiness_policy = self._build_readiness_policy(
+            assessment.role_slug,
+            profile_signals,
+            score_metrics,
+        )
 
-        # Retrieve recommendations
-        rag_result = await self.retrieve_recommendations(
+        # Retrieve recommendations with readiness-aware learning paths.
+        rag_result = await self._retrieve_with_learning_paths(
             assessment_id=assessment_id,
             role_slug=assessment.role_slug,
             profile_signals=profile_signals,
             essay_keywords=essay_keywords,
             missed_topics=missed_topics,
+            readiness_policy=readiness_policy,
         )
 
         # AC3: Persist results
@@ -978,6 +1345,43 @@ class RAGService:
                 missed.append(str(dimension))
         return missed
 
+    async def _extract_score_metrics(self, assessment_id: str) -> dict[str, float | bool]:
+        """Extract score percentages used for readiness/KKM gating."""
+        stmt = select(Score).where(Score.assessment_id == assessment_id)
+        result = await self.session.execute(stmt)
+        scores = result.scalars().all()
+
+        totals = {
+            QuestionType.THEORETICAL: {"score": 0.0, "max": 0.0},
+            QuestionType.PROFILE: {"score": 0.0, "max": 0.0},
+            QuestionType.ESSAY: {"score": 0.0, "max": 0.0},
+        }
+
+        for score in scores:
+            bucket = totals.get(score.question_type)
+            if bucket is None:
+                continue
+            bucket["score"] += float(score.score or 0.0)
+            bucket["max"] += float(score.max_score or 0.0)
+
+        def pct(kind: QuestionType) -> float:
+            max_val = totals[kind]["max"]
+            if max_val <= 0:
+                return 0.0
+            return round((totals[kind]["score"] / max_val) * 100, 1)
+
+        overall_score = sum(item["score"] for item in totals.values())
+        overall_max = sum(item["max"] for item in totals.values())
+        overall_pct = round((overall_score / overall_max) * 100, 1) if overall_max > 0 else 0.0
+
+        return {
+            "theoretical_pct": pct(QuestionType.THEORETICAL),
+            "profile_pct": pct(QuestionType.PROFILE),
+            "essay_pct": pct(QuestionType.ESSAY),
+            "overall_pct": overall_pct,
+            "has_essay_scores": totals[QuestionType.ESSAY]["max"] > 0,
+        }
+
     async def _persist_recommendation_items(
         self,
         assessment_id: str,
@@ -1001,10 +1405,20 @@ class RAGService:
                     "match_count": len(rag_result.matches),
                     "degraded": rag_result.degraded,
                     "error": rag_result.error,
+                    "readiness": rag_result.readiness,
                 },
             )
             self.session.add(recommendation)
             await self.session.flush()
+        else:
+            recommendation.rag_query = rag_result.query
+            recommendation.degraded = rag_result.degraded or recommendation.degraded
+            recommendation.rag_traces = {
+                "match_count": len(rag_result.matches),
+                "degraded": rag_result.degraded,
+                "error": rag_result.error,
+                "readiness": rag_result.readiness,
+            }
 
         # Add recommendation items
         for i, match in enumerate(rag_result.matches, start=1):
