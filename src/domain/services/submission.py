@@ -263,7 +263,22 @@ class SubmissionService:
                 response["selected_option_id"] = cleaned_id if cleaned_id else ""
 
         else:  # Profile question
-            # Check each field individually to handle empty strings properly
+            # Handle structured profile inputs (e.g. project count + checklist)
+            project_count = payload.get("project_count")
+            if project_count is not None:
+                response["project_count"] = project_count
+
+            selected_options = payload.get("selected_options")
+            if selected_options is None:
+                selected_options = payload.get("project_contexts")
+            if selected_options is None:
+                selected_options = payload.get("values")
+            if selected_options is not None:
+                cleaned_options = self._clean_list_values(selected_options)
+                if cleaned_options:
+                    response["selected_options"] = cleaned_options
+
+            # Check text-style fallback fields individually
             value = payload.get("value")
             if value is None:
                 value = payload.get("selected_option")
@@ -275,10 +290,6 @@ class SubmissionService:
                 value = payload.get("custom_text")
             if value is None:
                 value = payload.get("text")
-            if value is None:
-                value = payload.get("values")
-            if value is None:
-                value = payload.get("selected_options")
 
             # Clean and store value (even if empty string - user might intentionally leave blank)
             if value is not None:
@@ -294,6 +305,22 @@ class SubmissionService:
         if isinstance(value, str):
             return value.strip()
         return value
+
+    @staticmethod
+    def _clean_list_values(value: Any) -> list[str]:
+        if isinstance(value, list | tuple | set):
+            raw_values = value
+        else:
+            raw_values = [value]
+
+        cleaned: list[str] = []
+        for item in raw_values:
+            if item is None:
+                continue
+            text = str(item).strip()
+            if text:
+                cleaned.append(text)
+        return cleaned
 
     async def _check_idempotency_key(self, idempotency_key: str) -> Assessment | None:
         """Check if an assessment with this idempotency key already exists."""
@@ -468,6 +495,10 @@ class SubmissionService:
         response_data = response.response_data or {}
         expected_values = snapshot.expected_values or {}
 
+        # Project profile with numeric count + checklist categories (Q7).
+        if isinstance(expected_values, dict) and expected_values.get("type") == "project_checklist":
+            return self._score_project_checklist_profile(response_data, expected_values, max_score)
+
         # Check for compound question type (Q7 with months + projects)
         if isinstance(expected_values, dict) and expected_values.get("type") == "compound":
             return self._score_compound_profile(snapshot, response_data, expected_values, max_score)
@@ -556,6 +587,117 @@ class SubmissionService:
             "explanation": "Profil tidak lengkap",
             "rules_applied": {"rule": "completeness_check", "has_value": False},
         }
+
+    def _score_project_checklist_profile(
+        self,
+        response_data: dict[str, Any],
+        expected_values: dict[str, Any],
+        max_score: float,
+    ) -> dict[str, Any]:
+        """Score profile question using project count + checklist categories."""
+        project_count, selected_contexts = self._extract_project_profile_inputs(
+            response_data,
+            expected_values,
+        )
+
+        if project_count is None and not selected_contexts:
+            return {
+                "score": 0.0,
+                "max_score": max_score,
+                "explanation": "Profil tidak lengkap",
+                "rules_applied": {"rule": "project_checklist_missing_inputs"},
+            }
+
+        project_ranges = expected_values.get("project_count", {}).get("ranges", [])
+        checklist_scoring = expected_values.get("checklist_scoring", {})
+        max_raw = float(expected_values.get("max_raw_score", 100) or 100)
+
+        project_score = (
+            float(self._score_by_ranges(project_count, project_ranges))
+            if project_count is not None
+            else 0.0
+        )
+
+        normalized_contexts: list[str] = []
+        checklist_score = 0.0
+        for context in selected_contexts:
+            key = str(context).strip().lower()
+            if not key or key in normalized_contexts:
+                continue
+            normalized_contexts.append(key)
+            checklist_score += float(checklist_scoring.get(key, 0))
+
+        raw_total = min(max_raw, project_score + checklist_score)
+        score = (raw_total / max_raw) * max_score if max_raw > 0 else 0.0
+
+        return {
+            "score": score,
+            "max_score": max_score,
+            "explanation": f"Skor pengalaman: {raw_total:.0f}/{max_raw:.0f}",
+            "rules_applied": {
+                "rule": "project_checklist_scoring",
+                "project_count": project_count,
+                "project_score": project_score,
+                "selected_contexts": normalized_contexts,
+                "checklist_score": checklist_score,
+                "raw_total": raw_total,
+                "max_raw_score": max_raw,
+            },
+        }
+
+    def _extract_project_profile_inputs(
+        self,
+        response_data: dict[str, Any],
+        expected_values: dict[str, Any],
+    ) -> tuple[int | None, list[str]]:
+        """Extract project_count and selected checklist contexts from response payload."""
+        project_count = self._parse_int(response_data.get("project_count"))
+        selected_contexts = self._clean_list_values(response_data.get("selected_options"))
+
+        value = response_data.get("value")
+        if project_count is None and isinstance(value, dict):
+            project_count = self._parse_int(value.get("project_count"))
+            if not selected_contexts:
+                selected_contexts = self._clean_list_values(
+                    value.get("selected_options") or value.get("project_contexts")
+                )
+        elif project_count is None and not isinstance(value, list | dict):
+            project_count = self._parse_int(value)
+
+        if not selected_contexts:
+            selected_contexts = self._clean_list_values(response_data.get("project_contexts"))
+
+        if not selected_contexts and isinstance(value, list):
+            selected_contexts = self._clean_list_values(value)
+
+        # Compatibility fallback for legacy A/B/C/D options from old Q7 versions.
+        if project_count is None and not selected_contexts:
+            legacy_key_raw = response_data.get("selected_option") or response_data.get("value")
+            if isinstance(legacy_key_raw, str):
+                legacy_mapping = expected_values.get("legacy_option_mapping", {})
+                legacy_key = legacy_key_raw.strip().upper()
+                mapped = legacy_mapping.get(legacy_key)
+                if isinstance(mapped, dict):
+                    project_count = self._parse_int(mapped.get("project_count"))
+                    selected_contexts = self._clean_list_values(mapped.get("selected_options"))
+
+        return project_count, selected_contexts
+
+    @staticmethod
+    def _parse_int(value: Any) -> int | None:
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, int):
+            return value if value >= 0 else None
+        if isinstance(value, float):
+            return int(value) if value >= 0 else None
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped.isdigit():
+                return int(stripped)
+        return None
 
     def _score_compound_profile(
         self,

@@ -35,6 +35,22 @@ def build_responses_payload(
             elif qtype == "essay":
                 data["answer_text"] = f"Sample essay response {sequence}"
             else:  # profile
+                expected_values = question.get("expected_values") or {}
+                if (
+                    isinstance(expected_values, dict)
+                    and expected_values.get("type") == "project_checklist"
+                ):
+                    data["project_count"] = 10
+                    data["selected_options"] = [
+                        "personal",
+                        "kampus",
+                        "production",
+                        "lintas-domain",
+                    ]
+                    data["value"] = "10"
+                    responses.append(data)
+                    continue
+
                 accepted = None
                 metadata = question.get("metadata") or {}
                 if isinstance(metadata, dict):

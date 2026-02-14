@@ -273,6 +273,51 @@ class TestRuleScoring:
         if profile_scores["count"] > 0:
             assert profile_scores["percentage"] == 100.0
 
+    def test_profile_q7_project_checklist_weighted_scoring(
+        self,
+        test_client_with_questions: TestClient,
+    ) -> None:
+        """Q7 should use weighted sum from project_count + checklist contexts."""
+        headers = auth_headers(user_id="student-profile-q7")
+        start = test_client_with_questions.post(
+            "/assessments/start",
+            json={"role_slug": "backend-engineer"},
+            headers=headers,
+        )
+        assert start.status_code == 200
+        data = start.json()
+        assessment_id = data["assessment_id"]
+        questions = data["questions"]
+
+        q7 = next(q for q in questions if q["question_type"] == "profile" and q["sequence"] == 7)
+
+        payload = build_responses_payload(
+            questions,
+            overrides={
+                q7["id"]: {
+                    "project_count": 5,
+                    "selected_options": ["kampus", "production"],
+                    "value": "5",
+                }
+            },
+        )
+        submit = test_client_with_questions.post(
+            f"/assessments/{assessment_id}/submit",
+            headers=headers,
+            json=payload,
+        )
+        assert submit.status_code == 200
+        result = submit.json()
+
+        q7_breakdown = next(
+            item
+            for item in result["scores"]["profile"]["breakdown"]
+            if item["question_id"] == q7["id"]
+        )
+        assert q7_breakdown["max_score"] == 100.0
+        # project_count=5 -> 40, contexts(kampus+production) -> 10+15, total=65
+        assert q7_breakdown["score"] == 65.0
+
 
 class TestAsyncJobCreation:
     """Tests for async job creation on submission."""

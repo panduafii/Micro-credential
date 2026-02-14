@@ -48,7 +48,10 @@ class AssessmentResponsePayload(BaseModel):
     answer_text: str | None = None
     selected_option: str | None = None
     selected_option_id: str | None = None
-    value: str | None = None
+    value: Any = None
+    selected_options: list[str] | None = None
+    project_count: int | str | None = None
+    project_contexts: list[str] | None = None
     metadata: dict | None = None
 
 

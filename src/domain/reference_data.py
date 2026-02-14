@@ -259,30 +259,58 @@ QUESTION_TEMPLATES = [
         7,
         "profile",
         (
-            "Profil pengalaman Anda paling sesuai yang mana terkait lama programming dan "
-            "jumlah project backend yang pernah dikerjakan?"
+            "Masukkan total project backend yang pernah Anda kerjakan, lalu pilih semua "
+            "konteks project yang pernah Anda tangani (checklist)."
         ),
         "experience",
         options=[
-            {"id": "A", "text": "<1 tahun programming, 0-1 project backend"},
-            {
-                "id": "B",
-                "text": "1-2 tahun programming, 2-4 project backend (personal/kampus)",
-            },
-            {
-                "id": "C",
-                "text": "2-4 tahun programming, 5-8 project backend (termasuk production)",
-            },
-            {
-                "id": "D",
-                "text": ">4 tahun programming, >8 project backend lintas domain/production",
-            },
+            {"id": "personal", "text": "Project personal"},
+            {"id": "kampus", "text": "Project kampus/bootcamp"},
+            {"id": "production", "text": "Project production (real user)"},
+            {"id": "lintas-domain", "text": "Project lintas domain/industri"},
         ],
         expected_values={
-            "accepted_values": ["A", "B", "C", "D"],
+            "type": "project_checklist",
+            "project_count": {
+                "ranges": [
+                    {"min": 0, "max": 1, "score": 10},
+                    {"min": 2, "max": 4, "score": 25},
+                    {"min": 5, "max": 8, "score": 40},
+                    {"min": 9, "max": 999, "score": 60},
+                ]
+            },
+            "checklist_scoring": {
+                "personal": 5,
+                "kampus": 10,
+                "production": 15,
+                "lintas-domain": 10,
+            },
+            "max_raw_score": 100,
+            "accepted_values": ["personal", "kampus", "production", "lintas-domain"],
+            "legacy_option_mapping": {
+                "A": {"project_count": 1, "selected_options": ["personal"]},
+                "B": {"project_count": 3, "selected_options": ["personal", "kampus"]},
+                "C": {
+                    "project_count": 6,
+                    "selected_options": ["personal", "kampus", "production"],
+                },
+                "D": {
+                    "project_count": 9,
+                    "selected_options": [
+                        "personal",
+                        "kampus",
+                        "production",
+                        "lintas-domain",
+                    ],
+                },
+            },
             "allow_custom": False,
         },
-        metadata_extra={"captures": ["programming_years", "project_count"]},
+        metadata_extra={
+            "captures": ["project_count", "project_contexts"],
+            "input_mode": "numeric_plus_checklist",
+            "checklist_strategy": "sum_weighted_values",
+        },
     ),
     make_question(
         "backend-engineer",
@@ -521,24 +549,58 @@ QUESTION_TEMPLATES = [
         7,
         "profile",
         (
-            "Profil pengalaman Anda paling sesuai yang mana terkait lama programming/analisis "
-            "data dan jumlah project analitik yang pernah dikerjakan?"
+            "Masukkan total project analitik yang pernah Anda kerjakan, lalu pilih "
+            "semua konteks project yang pernah Anda tangani (checklist)."
         ),
         "experience",
         options=[
-            {"id": "A", "text": "<1 tahun, 0-1 project analitik"},
-            {"id": "B", "text": "1-2 tahun, 2-4 project SQL/dashboard"},
-            {"id": "C", "text": "2-4 tahun, 5-8 project analitik end-to-end"},
-            {
-                "id": "D",
-                "text": ">4 tahun, >8 project analitik dengan stakeholder production",
-            },
+            {"id": "personal", "text": "Project personal"},
+            {"id": "kampus", "text": "Project kampus/bootcamp"},
+            {"id": "production", "text": "Project production (real stakeholder)"},
+            {"id": "lintas-domain", "text": "Project lintas domain/industri"},
         ],
         expected_values={
-            "accepted_values": ["A", "B", "C", "D"],
+            "type": "project_checklist",
+            "project_count": {
+                "ranges": [
+                    {"min": 0, "max": 1, "score": 10},
+                    {"min": 2, "max": 4, "score": 25},
+                    {"min": 5, "max": 8, "score": 40},
+                    {"min": 9, "max": 999, "score": 60},
+                ]
+            },
+            "checklist_scoring": {
+                "personal": 5,
+                "kampus": 10,
+                "production": 15,
+                "lintas-domain": 10,
+            },
+            "max_raw_score": 100,
+            "accepted_values": ["personal", "kampus", "production", "lintas-domain"],
+            "legacy_option_mapping": {
+                "A": {"project_count": 1, "selected_options": ["personal"]},
+                "B": {"project_count": 3, "selected_options": ["personal", "kampus"]},
+                "C": {
+                    "project_count": 6,
+                    "selected_options": ["personal", "kampus", "production"],
+                },
+                "D": {
+                    "project_count": 9,
+                    "selected_options": [
+                        "personal",
+                        "kampus",
+                        "production",
+                        "lintas-domain",
+                    ],
+                },
+            },
             "allow_custom": False,
         },
-        metadata_extra={"captures": ["programming_years", "project_count"]},
+        metadata_extra={
+            "captures": ["project_count", "project_contexts"],
+            "input_mode": "numeric_plus_checklist",
+            "checklist_strategy": "sum_weighted_values",
+        },
     ),
     make_question(
         "data-analyst",
