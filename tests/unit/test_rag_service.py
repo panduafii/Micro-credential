@@ -204,6 +204,7 @@ class TestRAGService:
 
         matches = rag_service._score_and_filter_courses(
             courses=[beginner_course, advanced_course],
+            role_slug="backend-engineer",
             query_terms=["aws"],
             query_vec=rag_service._hash_embedding(["aws"]),
             missed_topics=[],
@@ -217,6 +218,105 @@ class TestRAGService:
 
         assert len(matches) == 1
         assert matches[0].course_id == "c1"
+
+    def test_role_fallback_keywords_exclude_advanced_bias(self, rag_service):
+        """Role fallback keywords should not be dominated by advanced targets."""
+        fallback = rag_service._get_role_fallback_keywords("backend-engineer")
+
+        lowered = [item.lower() for item in fallback]
+        assert "api" in lowered
+        assert "database" in lowered
+        assert "sql" in lowered
+        assert "aws" not in lowered
+
+    def test_min_keyword_guard_filters_irrelevant_foundation_fill(self, rag_service):
+        """Low-signal irrelevant courses should be filtered during broad foundation fallback."""
+        relevant_course = {
+            "course_id": "backend-1",
+            "course_title": "REST API with Python Flask",
+            "subject": "Web Development",
+            "url": "http://test.com/backend-1",
+            "level": "Beginner Level",
+            "content_duration": 5.0,
+            "is_paid": "False",
+            "price": 0.0,
+            "num_subscribers": 500,
+            "num_reviews": 50,
+            "_vector": rag_service._hash_embedding(["rest", "api", "python"]),
+            "_enriched": EnrichedCourseMetadata(
+                course_id="backend-1",
+                title="REST API with Python Flask",
+                tech_tags=["python", "api"],
+                difficulty="beginner",
+                is_free=True,
+                payment_type="free",
+                price=0.0,
+                duration_hours=5.0,
+                duration_category="medium",
+                num_subscribers=500,
+                num_reviews=50,
+                num_lectures=20,
+                quality_score=0.4,
+                popularity_score=0.1,
+                engagement_score=0.3,
+                level="Beginner Level",
+                subject="Web Development",
+                url="http://test.com/backend-1",
+                published_timestamp="2025-01-01T00:00:00Z",
+            ),
+        }
+        irrelevant_course = {
+            "course_id": "music-1",
+            "course_title": "Piano for Beginners",
+            "subject": "Musical Instruments",
+            "url": "http://test.com/music-1",
+            "level": "Beginner Level",
+            "content_duration": 30.0,
+            "is_paid": "True",
+            "price": 19.0,
+            "num_subscribers": 70000,
+            "num_reviews": 2000,
+            "_vector": rag_service._hash_embedding(["piano", "music"]),
+            "_enriched": EnrichedCourseMetadata(
+                course_id="music-1",
+                title="Piano for Beginners",
+                tech_tags=["music", "instruments"],
+                difficulty="beginner",
+                is_free=False,
+                payment_type="paid",
+                price=19.0,
+                duration_hours=30.0,
+                duration_category="long",
+                num_subscribers=70000,
+                num_reviews=2000,
+                num_lectures=120,
+                quality_score=0.9,
+                popularity_score=0.8,
+                engagement_score=0.7,
+                level="Beginner Level",
+                subject="Musical Instruments",
+                url="http://test.com/music-1",
+                published_timestamp="2025-01-01T00:00:00Z",
+            ),
+        }
+
+        matches = rag_service._score_and_filter_courses(
+            courses=[relevant_course, irrelevant_course],
+            role_slug="backend-engineer",
+            query_terms=["python", "api", "backend"],
+            query_vec=rag_service._hash_embedding(["python", "api", "backend"]),
+            missed_topics=[],
+            tech_pref_keywords=[],
+            payment_pref="any",
+            duration_pref="any",
+            top_k=5,
+            difficulty_pref="beginner",
+            min_keyword_score=0.05,
+            strict_payment=False,
+        )
+
+        assert len(matches) == 1
+        assert matches[0].course_id == "backend-1"
 
     def test_tag_matches_with_learning_path_sets_metadata(self, rag_service):
         """Learning path tags should be embedded in metadata and reason."""
@@ -380,3 +480,30 @@ class TestRAGServiceFallback:
 
             # Should be degraded since no matches
             assert result.degraded is True
+
+    @pytest.mark.asyncio
+    async def test_no_matches_without_fallback_returns_empty_non_degraded(self, mock_session):
+        """No-fallback mode should return empty results without degraded flag."""
+        service = RAGService(mock_session)
+
+        with patch.object(
+            service,
+            "_load_courses",
+            return_value=[
+                {
+                    "course_id": "1",
+                    "course_title": "Cooking 101",
+                    "subject": "Lifestyle",
+                    "url": "http://test.com/1",
+                },
+            ],
+        ):
+            result = await service.retrieve_recommendations(
+                assessment_id="test-123",
+                role_slug="backend-engineer",
+                top_k=5,
+                enable_fallback=False,
+            )
+
+            assert result.degraded is False
+            assert result.matches == []

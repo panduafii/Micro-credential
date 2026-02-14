@@ -135,8 +135,15 @@ class FusionService:
         profile_signals: dict | None = None,
         missed_topics: list[str] | None = None,
         user_name: str | None = None,
+        rag_traces: dict | None = None,
     ) -> str:
         """Generate narrative summary from scores and recommendations."""
+        readiness = None
+        if isinstance(rag_traces, dict):
+            readiness_candidate = rag_traces.get("readiness")
+            if isinstance(readiness_candidate, dict):
+                readiness = readiness_candidate
+
         return format_assessment_summary(
             role_title=role_title,
             overall_pct=breakdown.overall_pct,
@@ -149,6 +156,7 @@ class FusionService:
             profile_signals=profile_signals,
             missed_topics=missed_topics,
             user_name=user_name,
+            readiness=readiness,
         )
 
     async def _get_user_name(self, owner_id: str) -> str | None:
@@ -337,7 +345,14 @@ class FusionService:
         # Generate summary with personalization and missed topics
         role_title = assessment.role.name if assessment.role else assessment.role_slug
         summary = self._generate_summary(
-            role_title, breakdown, items, degraded, profile_signals, missed_topics, user_name
+            role_title,
+            breakdown,
+            items,
+            degraded,
+            profile_signals,
+            missed_topics,
+            user_name,
+            rag_traces,
         )
 
         # Calculate processing duration

@@ -17,6 +17,7 @@ def format_assessment_summary(
     profile_signals: dict | None = None,
     missed_topics: list[str] | None = None,
     user_name: str | None = None,
+    readiness: dict | None = None,
 ) -> str:
     """Build a markdown summary for assessment results.
 
@@ -256,7 +257,29 @@ def format_assessment_summary(
     # Determine if user is ready for their desired tech or needs prerequisites
     has_valid_tech_prefs = tech_prefs and tech_prefs.strip()
 
-    if has_valid_tech_prefs:
+    force_foundation = bool((readiness or {}).get("force_foundation"))
+    readiness_reason = str((readiness or {}).get("reason") or "").strip()
+    advanced_kkm = (readiness or {}).get("advanced_kkm")
+    learning_paths = (readiness or {}).get("learning_paths")
+    learning_mode = str((learning_paths or {}).get("mode") or "")
+
+    if force_foundation and has_valid_tech_prefs:
+        kkm_text = (
+            f" (KKM advanced: {advanced_kkm}%)" if isinstance(advanced_kkm, int | float) else ""
+        )
+        recommendation_text = (
+            readiness_reason
+            or "Selesaikan Mandatory Foundation terlebih dahulu, " "lalu lanjut ke Target Path."
+        )
+        conclusion = (
+            f"**Readiness Assessment:** Untuk target {tech_prefs}, "
+            f"skor Anda saat ini belum memenuhi KKM{kkm_text}. "
+            "Fokus utama saat ini adalah memperkuat fundamental terlebih dahulu "
+            "agar proses belajar "
+            "ke topik advanced lebih aman dan efektif. "
+            f"**Recommendation:** {recommendation_text}"
+        )
+    elif has_valid_tech_prefs:
         tech_lower = tech_prefs.lower()
 
         # Define advanced topics that require strong fundamentals
@@ -383,7 +406,12 @@ def format_assessment_summary(
         lines.append("")
 
         # Add personalized intro based on overall performance and tech preferences
-        if overall_pct >= 80:
+        if learning_mode == "two-path":
+            path_intro = (
+                "Rencana belajar dibagi menjadi dua jalur: selesaikan **Mandatory Foundation** "
+                "terlebih dahulu, kemudian lanjutkan ke **Target Path (Aspirational)**."
+            )
+        elif overall_pct >= 80:
             if tech_prefs:
                 path_intro = (
                     f"Based on your strong performance and interest in **{tech_prefs}**, "

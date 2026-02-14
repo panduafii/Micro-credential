@@ -147,6 +147,15 @@ ROLE_FOUNDATION_KEYWORDS: dict[str, list[str]] = {
     ],
 }
 
+ROLE_SUBJECTS: dict[str, list[str]] = {
+    "backend-engineer": ["Web Development"],
+    "frontend-engineer": ["Web Development"],
+    "devops-engineer": ["Web Development"],
+    "data-analyst": ["Business Finance", "Web Development"],
+    "data-scientist": ["Business Finance", "Web Development"],
+    "product-manager": ["Business Finance"],
+}
+
 TOPIC_KEYWORDS: dict[str, list[str]] = {
     "api": ["api", "rest", "graphql"],
     "database": ["database", "sql", "postgres", "mysql"],
@@ -541,6 +550,32 @@ class RAGService:
             "reason": reason,
         }
 
+    def _get_role_fallback_keywords(self, role_slug: str) -> list[str]:
+        """Get role-safe keywords used when user tech preferences are missing/relaxed."""
+        foundation = ROLE_FOUNDATION_KEYWORDS.get(role_slug, [])
+        role_keywords = ROLE_KEYWORDS.get(role_slug, [])
+
+        # Keep role keywords focused on fundamentals for fallback retrieval.
+        role_safe = [kw for kw in role_keywords if kw.lower() not in ADVANCED_TECH_KEYWORDS]
+
+        merged: list[str] = []
+        seen: set[str] = set()
+        for keyword in [*foundation, *role_safe]:
+            normalized = keyword.strip().lower()
+            if not normalized or normalized in seen:
+                continue
+            merged.append(keyword)
+            seen.add(normalized)
+        return merged[:10]
+
+    def _is_role_subject_match(self, role_slug: str, subject: str) -> bool:
+        """Validate course subject is within role scope."""
+        allowed = ROLE_SUBJECTS.get(role_slug)
+        if not allowed:
+            return True
+        subject_clean = (subject or "").strip().lower()
+        return any(subject_clean == option.lower() for option in allowed)
+
     def _build_query(
         self,
         role_slug: str,
@@ -661,6 +696,7 @@ class RAGService:
     def _retrieve_courses(
         self,
         query: str,
+        role_slug: str,
         top_k: int = 5,
         missed_topics: list[str] | None = None,
         profile_signals: dict | None = None,
@@ -708,8 +744,17 @@ class RAGService:
             else None
         )
 
-        # Parse tech preferences into keywords for exact matching
-        tech_pref_keywords = self._parse_tech_preferences(profile_signals.get("tech-preferences"))
+        # Parse tech preferences into keywords for exact matching.
+        raw_tech_pref_keywords = self._parse_tech_preferences(
+            profile_signals.get("tech-preferences")
+        )
+        if raw_tech_pref_keywords:
+            tech_pref_keywords = raw_tech_pref_keywords
+            min_keyword_score = 0.0
+        else:
+            # Guardrail: avoid broad/generic matches by using role-scoped fallback terms.
+            tech_pref_keywords = self._get_role_fallback_keywords(role_slug)
+            min_keyword_score = 0.05
 
         def _merge_unique(base: list[CourseMatch], extra: list[CourseMatch]) -> list[CourseMatch]:
             if not extra:
@@ -728,6 +773,7 @@ class RAGService:
         # First pass: with payment filter
         matches = self._score_and_filter_courses(
             courses,
+            role_slug,
             query_terms,
             query_vec,
             missed_topics,
@@ -737,6 +783,7 @@ class RAGService:
             top_k,
             difficulty_pref=difficulty_pref,
             readiness_note=readiness_reason,
+            min_keyword_score=min_keyword_score,
             strict_payment=True,
         )
 
@@ -744,6 +791,7 @@ class RAGService:
         if len(matches) < top_k and payment_pref != "any":
             relaxed_payment_matches = self._score_and_filter_courses(
                 courses,
+                role_slug,
                 query_terms,
                 query_vec,
                 missed_topics,
@@ -753,6 +801,7 @@ class RAGService:
                 top_k,
                 difficulty_pref=difficulty_pref,
                 readiness_note=readiness_reason,
+                min_keyword_score=min_keyword_score,
                 strict_payment=False,
             )
             matches = _merge_unique(matches, relaxed_payment_matches)
@@ -765,15 +814,17 @@ class RAGService:
         ):
             foundation_fill = self._score_and_filter_courses(
                 courses,
+                role_slug,
                 query_terms,
                 query_vec,
                 missed_topics,
-                [],  # Allow broad fundamentals regardless stated tech.
+                self._get_role_fallback_keywords(role_slug),
                 "any",
                 duration_pref,
                 top_k,
                 difficulty_pref="beginner",
                 readiness_note=readiness_reason,
+                min_keyword_score=0.05,
                 strict_payment=False,
             )
             matches = _merge_unique(matches, foundation_fill)
@@ -783,6 +834,7 @@ class RAGService:
     def _score_and_filter_courses(
         self,
         courses: list[dict],
+        role_slug: str,
         query_terms: list[str],
         query_vec: list[float],
         missed_topics: list[str],
@@ -792,6 +844,7 @@ class RAGService:
         top_k: int,
         difficulty_pref: str | None = None,
         readiness_note: str | None = None,
+        min_keyword_score: float = 0.0,
         strict_payment: bool = True,
     ) -> list[CourseMatch]:
         """Score and filter courses using enriched metadata for better matching."""
@@ -802,6 +855,9 @@ class RAGService:
             enriched = course.get("_enriched")
             if not enriched:
                 # Fallback to legacy method if enrichment failed
+                continue
+
+            if not self._is_role_subject_match(role_slug, enriched.subject):
                 continue
 
             # Use enriched metadata for precise filtering
@@ -819,6 +875,10 @@ class RAGService:
             # Legacy scoring for backward compatibility
             keyword_score = self._calculate_relevance(course, query_terms)
             embedding_score = self._cosine_similarity(query_vec, course.get("_vector", []))
+
+            # Guardrail for low-signal fallback paths to prevent irrelevant recommendations.
+            if keyword_score < min_keyword_score:
+                continue
 
             # Boost for missed topics
             tag_boost = 0.0
@@ -904,6 +964,7 @@ class RAGService:
         missed_topics: list[str] | None = None,
         top_k: int = 5,
         readiness_policy: dict[str, object] | None = None,
+        enable_fallback: bool = True,
     ) -> RAGResult:
         """
         Retrieve role-aware recommendations for an assessment.
@@ -923,6 +984,7 @@ class RAGService:
         try:
             matches = self._retrieve_courses(
                 query,
+                role_slug,
                 top_k,
                 missed_topics,
                 profile_signals,
@@ -930,6 +992,18 @@ class RAGService:
             )
 
             if not matches:
+                if not enable_fallback:
+                    await logger.ainfo(
+                        "rag_no_matches",
+                        assessment_id=assessment_id,
+                        query=query,
+                    )
+                    return RAGResult(
+                        query=query,
+                        matches=[],
+                        readiness=readiness_policy,
+                    )
+
                 # AC4: Static fallback
                 await logger.ainfo(
                     "rag_fallback_activated",
@@ -964,6 +1038,13 @@ class RAGService:
                 assessment_id=assessment_id,
                 error=str(e),
             )
+            if not enable_fallback:
+                return RAGResult(
+                    query=query,
+                    matches=[],
+                    error=str(e),
+                    readiness=readiness_policy,
+                )
             # AC4: Static fallback on error
             return RAGResult(
                 query=query,
@@ -1128,10 +1209,12 @@ class RAGService:
             )
 
         # Two-path mode for not-yet-ready advanced targets.
+        foundation_profile_signals = dict(profile_signals or {})
+        foundation_profile_signals.pop("tech-preferences", None)
         foundation_result = await self.retrieve_recommendations(
             assessment_id=assessment_id,
             role_slug=role_slug,
-            profile_signals=profile_signals,
+            profile_signals=foundation_profile_signals,
             essay_keywords=essay_keywords,
             missed_topics=missed_topics,
             top_k=3,
@@ -1155,6 +1238,7 @@ class RAGService:
             missed_topics=missed_topics,
             top_k=2,
             readiness_policy=target_policy,
+            enable_fallback=False,
         )
         target_matches = self._tag_matches_with_learning_path(
             target_result.matches,
@@ -1163,11 +1247,21 @@ class RAGService:
         )
 
         combined = self._merge_unique_matches(foundation_matches, target_matches, limit=5)
+        combined_mandatory_count = sum(
+            1
+            for item in combined
+            if str((item.metadata or {}).get("learning_path")) == "mandatory_foundation"
+        )
+        combined_target_count = sum(
+            1
+            for item in combined
+            if str((item.metadata or {}).get("learning_path")) == "target_path"
+        )
         readiness_with_paths = dict(readiness_policy)
         readiness_with_paths["learning_paths"] = {
             "mode": "two-path",
-            "mandatory_foundation_count": len(foundation_matches),
-            "target_path_count": len(target_matches),
+            "mandatory_foundation_count": combined_mandatory_count,
+            "target_path_count": combined_target_count,
             "mandatory_foundation_query": foundation_result.query,
             "target_path_query": target_result.query,
             "note": (
@@ -1179,7 +1273,7 @@ class RAGService:
         return RAGResult(
             query=foundation_result.query,
             matches=combined,
-            degraded=foundation_result.degraded or target_result.degraded,
+            degraded=foundation_result.degraded,
             error=foundation_result.error or target_result.error,
             readiness=readiness_with_paths,
         )
