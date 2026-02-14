@@ -45,8 +45,8 @@ def _update_question(
             SET
                 prompt = :prompt,
                 difficulty = :difficulty,
-                metadata = CAST(:metadata AS jsonb),
-                options = CAST(:options AS jsonb),
+                metadata = CAST(:metadata AS json),
+                options = CAST(:options AS json),
                 correct_answer = :correct_answer,
                 answer_key = :answer_key,
                 model_answer = :model_answer

@@ -42,9 +42,12 @@ def _update_template(
             UPDATE question_templates
             SET
                 difficulty = COALESCE(:difficulty, difficulty),
-                options = COALESCE(CAST(:options AS jsonb), options),
+                options = CASE
+                    WHEN :options IS NULL THEN options
+                    ELSE CAST(:options AS json)
+                END,
                 correct_answer = COALESCE(:correct_answer, correct_answer),
-                expected_values = CAST(:expected_values AS jsonb)
+                expected_values = CAST(:expected_values AS json)
             WHERE
                 role_slug = :role_slug
                 AND sequence = :sequence
@@ -349,7 +352,7 @@ def downgrade() -> None:
             UPDATE question_templates
             SET
                 options = NULL,
-                expected_values = '{"accepted_values": ["short", "medium", "long", "any"]}'::jsonb
+                expected_values = '{"accepted_values": ["short", "medium", "long", "any"]}'::json
             WHERE role_slug IN ('backend-engineer', 'data-analyst')
               AND sequence = 9
               AND question_type = 'profile'
@@ -364,7 +367,7 @@ def downgrade() -> None:
             UPDATE question_templates
             SET
                 options = NULL,
-                expected_values = '{"accepted_values": ["paid", "free", "any"]}'::jsonb
+                expected_values = '{"accepted_values": ["paid", "free", "any"]}'::json
             WHERE role_slug IN ('backend-engineer', 'data-analyst')
               AND sequence = 10
               AND question_type = 'profile'

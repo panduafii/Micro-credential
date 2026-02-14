@@ -36,15 +36,17 @@ def _update_q7(
             UPDATE question_templates
             SET
                 prompt = :prompt,
-                options = CAST(:options AS jsonb),
+                options = CAST(:options AS json),
                 expected_values = (
-                    '{"accepted_values": ["A", "B", "C", "D"], "allow_custom": false}'::jsonb
+                    '{"accepted_values": ["A", "B", "C", "D"], "allow_custom": false}'::json
                 ),
-                metadata = jsonb_set(
-                    COALESCE(metadata::jsonb, '{}'::jsonb),
-                    '{captures}',
-                    '["programming_years","project_count"]'::jsonb,
-                    true
+                metadata = CAST(
+                    jsonb_set(
+                        COALESCE(CAST(metadata AS jsonb), '{}'::jsonb),
+                        '{captures}',
+                        '["programming_years","project_count"]'::jsonb,
+                        true
+                    ) AS json
                 )
             WHERE
                 role_slug = :role_slug
@@ -120,11 +122,11 @@ def downgrade() -> None:
                   {"id":"B","text":"1-3 tahun"},
                   {"id":"C","text":"3-5 tahun"},
                   {"id":"D","text":">5 tahun"}
-                ]'::jsonb,
+                ]'::json,
                 expected_values = (
-                    '{"accepted_values": ["A", "B", "C", "D"], "allow_custom": false}'::jsonb
+                    '{"accepted_values": ["A", "B", "C", "D"], "allow_custom": false}'::json
                 ),
-                metadata = metadata::jsonb - 'captures'
+                metadata = CAST(CAST(metadata AS jsonb) - 'captures' AS json)
             WHERE role_slug = 'backend-engineer'
               AND sequence = 7
               AND question_type = 'profile'
@@ -144,11 +146,11 @@ def downgrade() -> None:
                   {"id":"B","text":"1-3 tahun"},
                   {"id":"C","text":"3-5 tahun"},
                   {"id":"D","text":">5 tahun"}
-                ]'::jsonb,
+                ]'::json,
                 expected_values = (
-                    '{"accepted_values": ["A", "B", "C", "D"], "allow_custom": false}'::jsonb
+                    '{"accepted_values": ["A", "B", "C", "D"], "allow_custom": false}'::json
                 ),
-                metadata = metadata::jsonb - 'captures'
+                metadata = CAST(CAST(metadata AS jsonb) - 'captures' AS json)
             WHERE role_slug = 'data-analyst'
               AND sequence = 7
               AND question_type = 'profile'
