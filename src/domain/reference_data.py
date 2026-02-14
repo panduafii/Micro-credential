@@ -59,12 +59,18 @@ def make_question(
     *,
     difficulty: str = "medium",
     weight: float = 1.0,
+    options: list[dict[str, str]] | None = None,
     correct_answer: str | None = None,
     answer_key: str | None = None,
     model_answer: str | None = None,
     rubric: dict | None = None,
     expected_values: dict | None = None,
+    metadata_extra: dict[str, object] | None = None,
 ) -> dict[str, object]:
+    metadata = {"dimension": dimension}
+    if metadata_extra:
+        metadata.update(metadata_extra)
+
     return {
         "role_slug": role_slug,
         "sequence": sequence,
@@ -72,12 +78,13 @@ def make_question(
         "prompt": prompt,
         "difficulty": difficulty,
         "weight": weight,
+        "options": options,
         "correct_answer": correct_answer,
         "answer_key": answer_key,
         "model_answer": model_answer,
         "rubric": rubric,
         "expected_values": expected_values,
-        "metadata": {"dimension": dimension},
+        "metadata": metadata,
     }
 
 
@@ -88,111 +95,194 @@ QUESTION_TEMPLATES = [
         1,
         "theoretical",
         (
-            "Jelaskan perbedaan antara REST API dan GraphQL. "
-            "Kapan sebaiknya menggunakan masing-masing?"
+            "HTTP status code yang paling tepat untuk request valid tapi tidak memiliki "
+            "akses ke resource adalah..."
         ),
-        "api-design",
+        "http-authz",
         difficulty="easy",
         weight=1.0,
-        correct_answer="A",
+        options=[
+            {"id": "A", "text": "400 Bad Request"},
+            {"id": "B", "text": "401 Unauthorized"},
+            {"id": "C", "text": "403 Forbidden"},
+            {"id": "D", "text": "404 Not Found"},
+        ],
+        correct_answer="C",
+        answer_key=(
+            "403 Forbidden digunakan ketika user sudah terautentikasi tetapi tidak memiliki "
+            "hak akses ke resource. 401 dipakai untuk auth yang belum valid/absen."
+        ),
+        model_answer=(
+            "403 Forbidden digunakan ketika user sudah terautentikasi tetapi tidak memiliki "
+            "hak akses ke resource. 401 dipakai untuk auth yang belum valid/absen."
+        ),
+        metadata_extra={"level": 1, "points": 2},
     ),
     make_question(
         "backend-engineer",
         2,
         "theoretical",
         (
-            "Apa yang dimaksud dengan database indexing? "
-            "Bagaimana cara menentukan kolom mana yang perlu di-index?"
+            "Query: SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 20; "
+            "Index yang paling efektif adalah..."
         ),
-        "database",
+        "database-indexing",
         difficulty="medium",
         weight=1.2,
-        correct_answer="A",
+        options=[
+            {"id": "A", "text": "index (created_at)"},
+            {"id": "B", "text": "index (user_id)"},
+            {"id": "C", "text": "composite index (user_id, created_at)"},
+            {"id": "D", "text": "fulltext index pada orders"},
+        ],
+        correct_answer="C",
+        answer_key=(
+            "Query melakukan filter berdasarkan user_id dan sorting created_at. "
+            "Composite index (user_id, created_at) biasanya paling efisien untuk pola ini."
+        ),
+        model_answer=(
+            "Query melakukan filter berdasarkan user_id dan sorting created_at. "
+            "Composite index (user_id, created_at) biasanya paling efisien untuk pola ini."
+        ),
+        metadata_extra={"level": 2, "points": 4},
     ),
     make_question(
         "backend-engineer",
         3,
         "theoretical",
-        "Jelaskan konsep caching dan sebutkan 3 strategi caching yang umum digunakan.",
-        "performance",
+        (
+            "Pada arsitektur microservices, untuk memastikan operasi create payment tidak "
+            "dobel saat client retry (timeout), pendekatan paling tepat adalah..."
+        ),
+        "idempotency",
         difficulty="hard",
         weight=1.5,
-        correct_answer="A",
+        options=[
+            {"id": "A", "text": "Client dilarang retry"},
+            {"id": "B", "text": "Tambahkan delay di client sebelum retry"},
+            {
+                "id": "C",
+                "text": "Gunakan Idempotency-Key dan simpan hasil berdasarkan key",
+            },
+            {"id": "D", "text": "Gunakan GET instead of POST"},
+        ],
+        correct_answer="C",
+        answer_key=(
+            "Retry adalah hal normal pada sistem terdistribusi. Solusi yang benar adalah "
+            "idempotency key + penyimpanan hasil/request key agar create tidak dobel."
+        ),
+        model_answer=(
+            "Retry adalah hal normal pada sistem terdistribusi. Solusi yang benar adalah "
+            "idempotency key + penyimpanan hasil/request key agar create tidak dobel."
+        ),
+        metadata_extra={"level": 3, "points": 6},
     ),
     make_question(
         "backend-engineer",
         4,
         "essay",
-        (
-            "Implementasikan REST API endpoint untuk CRUD operations pada resource 'products'. "
-            "Endpoint harus include: GET /products (list), POST /products (create), "
-            "PUT /products/:id (update), DELETE /products/:id (delete). "
-            "Tulis kode dengan validasi input dan error handling."
-        ),
-        "api-implementation",
+        ("Jelaskan perbedaan PUT vs PATCH, lalu beri contoh request payload " "untuk update user."),
+        "http-methods",
         difficulty="easy",
         weight=1.0,
         answer_key=(
-            "Buat CRUD endpoints dengan validasi body, status code tepat, dan error handling. "
-            "Gunakan method GET/POST/PUT/DELETE, cek not-found, dan kembalikan JSON."
+            "PUT untuk full replacement resource (idempotent), PATCH untuk partial update. "
+            "Contoh: PUT /users/10 kirim semua field penting user, PATCH /users/10 cukup "
+            'field yang berubah misal {"email": "baru@x.com"}. Sebutkan implikasi '
+            "field missing dan kaitan idempotency."
         ),
         model_answer=(
-            "Buat CRUD endpoints dengan validasi body, status code tepat, dan error handling. "
-            "Gunakan method GET/POST/PUT/DELETE, cek not-found, dan kembalikan JSON."
+            "PUT mengganti seluruh representasi resource, PATCH mengubah sebagian field. "
+            "PUT /users/10 biasanya mengirim name/email/dll lengkap; PATCH /users/10 cukup "
+            'misalnya {"email": "baru@x.com"}. Jelaskan validasi field tidak dikirim, '
+            "risiko field ter-reset pada PUT, dan sifat idempotent."
         ),
         rubric=ESSAY_RUBRICS["easy"],
+        metadata_extra={"level": 4, "points": 8},
     ),
     make_question(
         "backend-engineer",
         5,
         "essay",
         (
-            "Tulis unit test untuk fungsi yang memvalidasi email format. "
-            "Test harus cover: valid email, invalid format, empty string, "
-            "null value, dan email dengan special characters."
+            "Buat pseudo-code atau kode untuk endpoint POST /login yang memvalidasi input, "
+            "verifikasi password hash, mengembalikan JWT ber-exp, dan mapping error "
+            "400/401/500 secara tepat."
         ),
-        "testing",
+        "auth-implementation",
         difficulty="medium",
         weight=1.2,
         answer_key=(
-            "Gunakan regex/validator email dan tulis unit test untuk valid, invalid, kosong, null, "
-            "serta karakter khusus. Pastikan assert hasil True/False sesuai kasus."
+            "Langkah minimal: validasi email/password wajib (400), query user by email, "
+            "verify hash (bcrypt/argon2) bukan plaintext, jika gagal 401, jika sukses "
+            "kirim JWT dengan sub dan exp, error tak terduga 500 tanpa bocor info sensitif."
         ),
         model_answer=(
-            "Gunakan regex/validator email dan tulis unit test untuk valid, invalid, kosong, null, "
-            "serta karakter khusus. Pastikan assert hasil True/False sesuai kasus."
+            "if !email || !password -> 400; user = findByEmail(email); if !user -> 401; "
+            "if !verify(password, user.password_hash) -> 401; "
+            "token = jwt.sign({sub:user.id,exp}, secret); "
+            "return 200 {token, expires_in}; catch unexpected -> 500. Hindari membedakan "
+            "error user-not-found vs wrong-password dalam response."
         ),
         rubric=ESSAY_RUBRICS["medium"],
+        metadata_extra={"level": 5, "points": 12},
     ),
     make_question(
         "backend-engineer",
         6,
         "essay",
         (
-            "Desain database schema untuk aplikasi e-commerce sederhana "
-            "dengan entitas: Users, Products, Orders, dan Order Items. "
-            "Jelaskan relasi antar tabel dan field yang diperlukan."
+            "Desain mekanisme rate limiting untuk public API multi-instance yang bisa "
+            "handle burst, aman, efisien, dan mengembalikan response informatif saat "
+            "limit tercapai."
         ),
-        "database-design",
+        "rate-limiting",
         difficulty="hard",
         weight=1.5,
         answer_key=(
-            "Relasi: Users 1-N Orders, Orders 1-N OrderItems, OrderItems N-1 Products. "
-            "Sertakan kunci asing, tipe data utama, dan index pada FK serta lookup umum."
+            "Pilih Token Bucket atau Sliding Window (burst-friendly), gunakan shared store "
+            "Redis lintas instance, key per apiKey/user/IP + endpoint group, atomicity via "
+            "Lua script/atomic ops, return 429 beserta Retry-After dan header rate-limit."
         ),
         model_answer=(
-            "Relasi: Users 1-N Orders, Orders 1-N OrderItems, OrderItems N-1 Products. "
-            "Sertakan kunci asing, tipe data utama, dan index pada FK serta lookup umum."
+            "Implementasi umum: Redis token bucket per key rate:{apiKey}:{routeGroup}, refill "
+            "periodik, consume token atomik via Lua agar race-condition tidak jebol limit pada "
+            "multi-instance. Saat limit habis kirim 429 Too Many Requests + Retry-After, "
+            "X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset. Tambahkan "
+            "metrics/logging."
         ),
         rubric=ESSAY_RUBRICS["hard"],
+        metadata_extra={"level": 6, "points": 18},
     ),
     make_question(
         "backend-engineer",
         7,
         "profile",
-        "Berapa tahun pengalaman Anda sebagai Backend Engineer?",
+        (
+            "Profil pengalaman Anda paling sesuai yang mana terkait lama programming dan "
+            "jumlah project backend yang pernah dikerjakan?"
+        ),
         "experience",
-        expected_values={"accepted_values": ["<1", "1-3", "3-5", "5+"]},
+        options=[
+            {"id": "A", "text": "<1 tahun programming, 0-1 project backend"},
+            {
+                "id": "B",
+                "text": "1-2 tahun programming, 2-4 project backend (personal/kampus)",
+            },
+            {
+                "id": "C",
+                "text": "2-4 tahun programming, 5-8 project backend (termasuk production)",
+            },
+            {
+                "id": "D",
+                "text": ">4 tahun programming, >8 project backend lintas domain/production",
+            },
+        ],
+        expected_values={
+            "accepted_values": ["A", "B", "C", "D"],
+            "allow_custom": False,
+        },
+        metadata_extra={"captures": ["programming_years", "project_count"]},
     ),
     make_question(
         "backend-engineer",
@@ -229,7 +319,16 @@ QUESTION_TEMPLATES = [
         "profile",
         "Preferensi durasi course yang Anda inginkan?",
         "content-duration",
-        expected_values={"accepted_values": ["short", "medium", "long", "any"]},
+        options=[
+            {"id": "A", "text": "Short (<2 jam)"},
+            {"id": "B", "text": "Medium (2-6 jam)"},
+            {"id": "C", "text": "Long (>6 jam)"},
+            {"id": "D", "text": "Any duration"},
+        ],
+        expected_values={
+            "accepted_values": ["A", "B", "C", "D"],
+            "allow_custom": False,
+        },
     ),
     make_question(
         "backend-engineer",
@@ -237,119 +336,209 @@ QUESTION_TEMPLATES = [
         "profile",
         "Apakah Anda tertarik dengan course berbayar atau gratis?",
         "payment-preference",
-        expected_values={"accepted_values": ["paid", "free", "any"]},
+        options=[
+            {"id": "A", "text": "Paid"},
+            {"id": "B", "text": "Free"},
+            {"id": "C", "text": "Keduanya (Paid & Free)"},
+        ],
+        expected_values={
+            "accepted_values": ["A", "B", "C"],
+            "allow_custom": False,
+        },
     ),
     # Data Analyst Questions
     make_question(
         "data-analyst",
         1,
         "theoretical",
-        (
-            "Jelaskan perbedaan antara mean, median, dan mode. "
-            "Kapan sebaiknya menggunakan masing-masing ukuran central tendency?"
-        ),
-        "statistics",
+        "Mean dan median akan berbeda signifikan ketika data memiliki...",
+        "statistics-outlier",
         difficulty="easy",
         weight=1.0,
-        correct_answer="A",
+        options=[
+            {"id": "A", "text": "Data yang simetris"},
+            {"id": "B", "text": "Distribusi normal"},
+            {"id": "C", "text": "Outlier ekstrem"},
+            {"id": "D", "text": "Jumlah data genap"},
+        ],
+        correct_answer="C",
+        answer_key=(
+            "Outlier ekstrem menarik nilai mean jauh lebih kuat dibanding median. "
+            "Karena itu gap mean vs median biasanya membesar saat ada outlier."
+        ),
+        model_answer=(
+            "Outlier ekstrem memengaruhi mean lebih besar daripada median. "
+            "Itu sebabnya keduanya bisa berbeda signifikan pada data dengan outlier."
+        ),
+        metadata_extra={"level": 1, "points": 2},
     ),
     make_question(
         "data-analyst",
         2,
         "theoretical",
         (
-            "Apa yang dimaksud dengan data visualization best practices? "
-            "Sebutkan 3 prinsip penting dalam membuat visualisasi data yang efektif."
+            "Query berikut akan menghasilkan apa?\n"
+            "SELECT COUNT(DISTINCT user_id)\n"
+            "FROM transactions\n"
+            "WHERE transaction_date >= '2025-01-01'\n"
+            "AND transaction_date < '2025-02-01';"
         ),
-        "visualization",
+        "sql-distinct",
         difficulty="medium",
         weight=1.2,
-        correct_answer="A",
+        options=[
+            {
+                "id": "A",
+                "text": "Jumlah seluruh transaksi yang terjadi pada Januari 2025",
+            },
+            {
+                "id": "B",
+                "text": "Jumlah user unik yang bertransaksi pada Januari 2025",
+            },
+            {"id": "C", "text": "Jumlah user baru yang mendaftar pada Januari 2025"},
+            {"id": "D", "text": "Jumlah user unik yang bertransaksi sepanjang tahun 2025"},
+        ],
+        correct_answer="B",
+        answer_key=(
+            "COUNT(DISTINCT user_id) menghitung user unik, bukan jumlah transaksi. "
+            "Filter tanggal membatasi hanya transaksi dalam rentang Januari 2025."
+        ),
+        model_answer=(
+            "Hasil query adalah jumlah user unik yang melakukan transaksi pada Januari 2025."
+        ),
+        metadata_extra={"level": 2, "points": 4},
     ),
     make_question(
         "data-analyst",
         3,
         "theoretical",
-        "Jelaskan konsep data cleaning dan mengapa ini penting dalam analisis data.",
-        "data-quality",
+        (
+            "Dalam dashboard funnel, conversion rate per channel naik tetapi conversion rate "
+            "total turun. Penyebab paling mungkin adalah..."
+        ),
+        "simpson-paradox",
         difficulty="hard",
         weight=1.5,
-        correct_answer="A",
+        options=[
+            {
+                "id": "A",
+                "text": "Data pasti salah karena metrik channel dan total harus selalu searah",
+            },
+            {
+                "id": "B",
+                "text": (
+                    "Terjadi Simpson's paradox akibat perubahan proporsi trafik antar channel"
+                ),
+            },
+            {
+                "id": "C",
+                "text": "COUNT(DISTINCT) otomatis memperbaiki bias komposisi channel",
+            },
+            {"id": "D", "text": "Median conversion tidak bisa dipakai untuk data funnel"},
+        ],
+        correct_answer="B",
+        answer_key=(
+            "Ini pola klasik Simpson's paradox: setiap segmen membaik, tetapi metrik agregat "
+            "memburuk karena komposisi volume antar segmen berubah."
+        ),
+        model_answer=(
+            "Kemungkinan besar Simpson's paradox karena pergeseran proporsi trafik antar channel."
+        ),
+        metadata_extra={"level": 3, "points": 6},
     ),
     make_question(
         "data-analyst",
         4,
         "essay",
         (
-            "Tulis SQL query untuk menganalisis sales data: "
-            "Tampilkan top 5 products berdasarkan total revenue, "
-            "join dengan category info, dan group by category. "
-            "Include total quantity sold dan average price per product."
+            "Diberikan tabel transaksi dengan kolom user_id, amount, transaction_date, "
+            "email, dan city. Jelaskan langkah data cleaning dan validasi sebelum analisis."
         ),
-        "sql-analysis",
+        "data-cleaning-validation",
         difficulty="easy",
         weight=1.0,
         answer_key=(
-            "Gunakan JOIN dengan kategori, GROUP BY kategori dan produk. Hitung SUM(revenue), "
-            "SUM(quantity), AVG(price), lalu urutkan top 5 revenue."
+            "Cek null, duplikasi, tipe data tanggal/angka, format email, nilai amount negatif, "
+            "dan outlier. Dokumentasikan rule cleaning agar reproducible."
         ),
         model_answer=(
-            "Gunakan JOIN dengan kategori, GROUP BY kategori dan produk. Hitung SUM(revenue), "
-            "SUM(quantity), AVG(price), lalu urutkan top 5 revenue."
+            "Langkah minimum: profiling data, handle missing value, dedup transaction, "
+            "standarisasi city casing, parse transaction_date, validasi email pattern, "
+            "flag amount negatif/outlier, lalu buat data quality report sebelum analisis lanjut."
         ),
         rubric=ESSAY_RUBRICS["easy"],
+        metadata_extra={"level": 4, "points": 8},
     ),
     make_question(
         "data-analyst",
         5,
         "essay",
         (
-            "Diberikan dataset customer dengan kolom: age, gender, income, purchase_amount. "
-            "Jelaskan langkah-langkah untuk melakukan exploratory data analysis (EDA). "
-            "Apa saja visualisasi yang akan Anda buat dan insight apa yang dicari?"
+            "Tulis SQL untuk menghitung Monthly Active Users (MAU) dan persentase repeat user "
+            "per bulan dari tabel transactions(user_id, transaction_date)."
         ),
-        "eda",
+        "sql-mau-repeat",
         difficulty="medium",
         weight=1.2,
         answer_key=(
-            "Langkah EDA: cek missing/outlier, distribusi, korelasi, segmentasi. "
-            "Visual: histogram, boxplot, scatter, bar per segmen, korelasi heatmap."
+            "Gunakan DATE_TRUNC per bulan, COUNT(DISTINCT user_id) untuk MAU, dan hitung "
+            "repeat user dengan agregasi transaksi per user per bulan (>1 transaksi)."
         ),
         model_answer=(
-            "Langkah EDA: cek missing/outlier, distribusi, korelasi, segmentasi. "
-            "Visual: histogram, boxplot, scatter, bar per segmen, korelasi heatmap."
+            "Contoh pendekatan: CTE monthly_user_txn (month,user_id,txn_count), lalu agregasi "
+            "MAU = COUNT(DISTINCT user_id), repeat_users = COUNT(CASE WHEN txn_count>1), "
+            "repeat_rate = repeat_users::float/MAU."
         ),
         rubric=ESSAY_RUBRICS["medium"],
+        metadata_extra={"level": 5, "points": 12},
     ),
     make_question(
         "data-analyst",
         6,
         "essay",
         (
-            "Buatlah executive summary dari hasil analisis: "
-            "Website traffic meningkat 30% bulan ini, tapi conversion rate turun 15%. "
-            "Bounce rate naik 20%. Jelaskan insight dan rekomendasi aksi dalam 150 kata."
+            "Case: Revenue naik 12% MoM, tetapi jumlah pelanggan aktif turun 8% dan return rate "
+            "naik 15%. Buat analytical memo yang menjelaskan hipotesis akar masalah, "
+            "analisis lanjutan yang perlu dijalankan, dan rekomendasi aksi prioritas."
         ),
-        "insight-communication",
+        "business-reasoning",
         difficulty="hard",
         weight=1.5,
         answer_key=(
-            "Ringkas insight: traffic naik, conversion turun, bounce naik. "
-            "Jelaskan kemungkinan penyebab dan rekomendasi aksi perbaikan funnel."
+            "Harus menggabungkan reasoning bisnis + metrik: segmentasi cohort/produk/channel, "
+            "cek kontribusi pricing vs volume, quality issue, dan rencana eksperimen prioritas."
         ),
         model_answer=(
-            "Ringkas insight: traffic naik, conversion turun, bounce naik. "
-            "Jelaskan kemungkinan penyebab dan rekomendasi aksi perbaikan funnel."
+            "Memo yang baik memetakan kemungkinan revenue ditopang kenaikan AOV, sementara "
+            "retensi melemah. Kandidat perlu usulkan breakdown cohort, root-cause return, "
+            "dan action plan terukur (owner, metric target, timeline)."
         ),
         rubric=ESSAY_RUBRICS["hard"],
+        metadata_extra={"level": 6, "points": 18},
     ),
     make_question(
         "data-analyst",
         7,
         "profile",
-        "Berapa tahun pengalaman Anda sebagai Data Analyst?",
+        (
+            "Profil pengalaman Anda paling sesuai yang mana terkait lama programming/analisis "
+            "data dan jumlah project analitik yang pernah dikerjakan?"
+        ),
         "experience",
-        expected_values={"accepted_values": ["<1", "1-3", "3-5", "5+"]},
+        options=[
+            {"id": "A", "text": "<1 tahun, 0-1 project analitik"},
+            {"id": "B", "text": "1-2 tahun, 2-4 project SQL/dashboard"},
+            {"id": "C", "text": "2-4 tahun, 5-8 project analitik end-to-end"},
+            {
+                "id": "D",
+                "text": ">4 tahun, >8 project analitik dengan stakeholder production",
+            },
+        ],
+        expected_values={
+            "accepted_values": ["A", "B", "C", "D"],
+            "allow_custom": False,
+        },
+        metadata_extra={"captures": ["programming_years", "project_count"]},
     ),
     make_question(
         "data-analyst",
@@ -385,7 +574,16 @@ QUESTION_TEMPLATES = [
         "profile",
         "Preferensi durasi course yang Anda inginkan?",
         "content-duration",
-        expected_values={"accepted_values": ["short", "medium", "long", "any"]},
+        options=[
+            {"id": "A", "text": "Short (<2 jam)"},
+            {"id": "B", "text": "Medium (2-6 jam)"},
+            {"id": "C", "text": "Long (>6 jam)"},
+            {"id": "D", "text": "Any duration"},
+        ],
+        expected_values={
+            "accepted_values": ["A", "B", "C", "D"],
+            "allow_custom": False,
+        },
     ),
     make_question(
         "data-analyst",
@@ -393,6 +591,14 @@ QUESTION_TEMPLATES = [
         "profile",
         "Apakah Anda tertarik dengan course berbayar atau gratis?",
         "payment-preference",
-        expected_values={"accepted_values": ["paid", "free", "any"]},
+        options=[
+            {"id": "A", "text": "Paid"},
+            {"id": "B", "text": "Free"},
+            {"id": "C", "text": "Keduanya (Paid & Free)"},
+        ],
+        expected_values={
+            "accepted_values": ["A", "B", "C"],
+            "allow_custom": False,
+        },
     ),
 ]
