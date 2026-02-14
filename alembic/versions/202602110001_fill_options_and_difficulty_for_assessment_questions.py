@@ -42,10 +42,7 @@ def _update_template(
             UPDATE question_templates
             SET
                 difficulty = COALESCE(:difficulty, difficulty),
-                options = CASE
-                    WHEN :options IS NULL THEN options
-                    ELSE CAST(:options AS json)
-                END,
+                options = COALESCE(CAST(:options AS json), options),
                 correct_answer = COALESCE(:correct_answer, correct_answer),
                 expected_values = CAST(:expected_values AS json)
             WHERE
