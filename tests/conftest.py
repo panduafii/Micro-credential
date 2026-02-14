@@ -104,6 +104,16 @@ async def async_client(test_client: TestClient) -> AsyncIterator[AsyncClient]:
 
 
 @pytest.fixture()
+async def async_client_with_questions(
+    test_client_with_questions: TestClient,
+) -> AsyncIterator[AsyncClient]:
+    """Async HTTP client with seeded question templates."""
+    transport = ASGITransport(app=app)  # type: ignore
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+
+
+@pytest.fixture()
 async def db(test_client: TestClient) -> AsyncIterator[AsyncSession]:
     """Provide a database session for tests that need direct DB access."""
     session_factory = test_client.session_factory  # type: ignore

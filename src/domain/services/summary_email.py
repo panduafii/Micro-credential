@@ -173,4 +173,4 @@ class SummaryEmailService:
                 items.append(f'<li><a href="{url_text}">{title}</a></li>')
             else:
                 items.append(f"<li>{title}</li>")
-        return f"<ol>{"".join(items)}</ol>"
+        return "<ol>" + "".join(items) + "</ol>"
